@@ -1,7 +1,5 @@
 # OVAPI Bus Information for Home Assistant
 
-🏆 **Platinum Quality Tier** - Built to Home Assistant's highest integration standards
-
 A custom Home Assistant integration that provides real-time bus information from OVAPI.nl (Dutch public transport API). This integration allows you to monitor bus arrivals, track delays, and plan when to leave home to catch your bus.
 
 ## Features
@@ -193,29 +191,6 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## License
 
 This project is licensed under the MIT License.
-
-## Code Quality
-
-This integration is built to achieve **Platinum Tier** on the Home Assistant Quality Scale:
-
-### ✅ Platinum Features Implemented
-- **Fully Asynchronous**: All operations use async/await for optimal performance
-- **Strict Type Hints**: Complete type annotations throughout the codebase  
-- **Runtime Data**: Proper use of ConfigEntry.runtime_data pattern
-- **Diagnostics Support**: Built-in diagnostics for troubleshooting
-- **Reconfiguration Flow**: Adjust settings without recreating the integration
-- **Entity Translations**: Fully translatable entity names
-- **Device Classes**: Proper SensorDeviceClass and EntityCategory assignments
-- **Disabled by Default**: Less-used sensors disabled to avoid clutter
-- **Comprehensive Tests**: Test coverage for all major components
-- **GTFS Integration**: Smart stop search using official transit data
-- **Efficient Polling**: Configurable update intervals (30-300s) to respect API limits
-
-### Quality Scale Compliance
-- 🥉 **Bronze**: Config flow, unique IDs, proper entity naming ✅
-- 🥈 **Silver**: Error handling, re-authentication, unload support ✅
-- 🥇 **Gold**: Diagnostics, reconfiguration, translations, device support ✅
-- 🏆 **Platinum**: Strict typing, async patterns, efficient data handling ✅
 
 ## Disclaimer
 
