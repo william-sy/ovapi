@@ -40,31 +40,31 @@ The integration provides an easy-to-use configuration interface:
 
 **Step 1: Choose Setup Method**
 
-![Setup Method](Screenshots/Step-1.png)
+<img src="Screenshots/Step-1.png" alt="Setup Method" width="50%">
 
 **Step 2: Search for Stop**
 
-![Search for Stop](Screenshots/Step-2.png)
+<img src="Screenshots/Step-2.png" alt="Search for Stop" width="50%">
 
 **Step 3: Select Stop from Results**
 
-![Select Stop](Screenshots/step-3.png)
+<img src="Screenshots/step-3.png" alt="Select Stop" width="50%">
 
 **Step 4: Configure Line Filter**
 
-![Line Filter](Screenshots/Step-4.png)
+<img src="Screenshots/Step-4.png" alt="Line Filter" width="50%">
 
 **Step 5: Configure Destination Filter**
 
-![Destination Filter](Screenshots/Step-5.png)
+<img src="Screenshots/Step-5.png" alt="Destination Filter" width="50%">
 
 **Step 6: Configure Walking Time and Update Interval**
 
-![Walking Time and Update](Screenshots/Step-6.png)
+<img src="Screenshots/Step-6.png" alt="Walking Time and Update" width="50%">
 
 **Result: Integration Added**
 
-![Integration Added](Screenshots/Result.png)
+<img src="Screenshots/Result.png" alt="Integration Added" width="50%">
 
 ## Configuration
 
