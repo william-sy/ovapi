@@ -1,0 +1,81 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Voeg OVAPI Stop Toe",
+        "description": "Kies hoe u uw openbaar vervoershalte wilt toevoegen",
+        "menu_options": {
+          "search": "Zoeken naar een halte",
+          "manual": "Voer haltecode handmatig in"
+        }
+      },
+      "search": {
+        "title": "Zoeken naar halte",
+        "description": "Voer een halte naam of locatie in om te zoeken",
+        "data": {
+          "search_query": "Zoekopdracht"
+        }
+      },
+      "select_stop": {
+        "title": "Selecteer halte",
+        "description": "Kies uw halte uit de resultaten",
+        "data": {
+          "stop": "Halte"
+        }
+      },
+      "manual": {
+        "title": "Voer haltecode handmatig in",
+        "description": "Voer uw haltecode handmatig in",
+        "data": {
+          "stop_code": "Haltecode"
+        }
+      },
+      "configure": {
+        "title": "Configureer halte {stop_code}",
+        "description": "Configureer monitoring opties voor deze halte",
+        "data": {
+          "line_number": "Lijnnummer (optioneel)",
+          "destination": "Bestemmingsfilter (optioneel)",
+          "walking_time": "Wandeltijd naar halte (0 = uitgeschakeld, 1-60 minuten)",
+          "scan_interval": "Update Interval (seconden, 30-300)"
+        },
+        "data_description": {
+          "walking_time": "Stel in op 0 om de wandelplanner-sensor uit te schakelen. Wanneer ingeschakeld (1-60), wordt een sensor gemaakt die aangeeft wanneer u moet vertrekken."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Kan geen verbinding maken met OVAPI. Controleer de haltecode.",
+      "unknown": "Onverwachte fout opgetreden",
+      "no_stops_found": "Geen haltes gevonden die overeenkomen met uw zoekopdracht. Probeer een andere zoekopdracht."
+    },
+    "abort": {
+      "already_configured": "Deze halte- en lijncombinatie is al geconfigureerd"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "current_bus": {
+        "name": "Huidig voertuig"
+      },
+      "next_bus": {
+        "name": "Volgend voertuig"
+      },
+      "current_delay": {
+        "name": "Huidige voertuigvertraging"
+      },
+      "next_delay": {
+        "name": "Volgende voertuigvertraging"
+      },
+      "current_departure": {
+        "name": "Huidige voertuigvertrek"
+      },
+      "next_departure": {
+        "name": "Volgende voertuigvertrek"
+      },
+      "time_to_leave": {
+        "name": "Vertrektijd"
+      }
+    }
+  }
+}

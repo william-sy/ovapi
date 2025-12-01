@@ -2,30 +2,30 @@
   "config": {
     "step": {
       "user": {
-        "title": "Add OVAPI Bus Stop",
-        "description": "Choose how to add your bus stop",
+        "title": "Add OVAPI Stop",
+        "description": "Choose how to add your public transport stop",
         "menu_options": {
           "search": "Search for a stop",
           "manual": "Enter stop code manually"
         }
       },
       "search": {
-        "title": "Search for Bus Stop",
+        "title": "Search for Stop",
         "description": "Enter a stop name or location to search",
         "data": {
           "search_query": "Search Query"
         }
       },
       "select_stop": {
-        "title": "Select Bus Stop",
-        "description": "Choose your bus stop from the results",
+        "title": "Select Stop",
+        "description": "Choose your stop from the results",
         "data": {
-          "stop": "Bus Stop"
+          "stop": "Stop"
         }
       },
       "manual": {
         "title": "Enter Stop Code",
-        "description": "Enter your bus stop code manually",
+        "description": "Enter your stop code manually",
         "data": {
           "stop_code": "Stop Code"
         }
@@ -56,22 +56,22 @@
   "entity": {
     "sensor": {
       "current_bus": {
-        "name": "Current bus"
+        "name": "Current vehicle"
       },
       "next_bus": {
-        "name": "Next bus"
+        "name": "Next vehicle"
       },
       "current_delay": {
-        "name": "Current bus delay"
+        "name": "Current vehicle delay"
       },
       "next_delay": {
-        "name": "Next bus delay"
+        "name": "Next vehicle delay"
       },
       "current_departure": {
-        "name": "Current bus departure"
+        "name": "Current vehicle departure"
       },
       "next_departure": {
-        "name": "Next bus departure"
+        "name": "Next vehicle departure"
       },
       "time_to_leave": {
         "name": "Time to leave"
