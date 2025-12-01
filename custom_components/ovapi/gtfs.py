@@ -11,6 +11,8 @@ from typing import Any
 
 import aiohttp
 
+from homeassistant.util import file as file_util
+
 _LOGGER = logging.getLogger(__name__)
 
 GTFS_BASE_URL = "https://gtfs.ovapi.nl/govi"
@@ -28,40 +30,35 @@ class GTFSStopCache:
         self._last_update: datetime | None = None
         self._cache_dir = cache_dir
         self._cache_file = cache_dir / GTFS_CACHE_FILE
-        
-        # Load cache from disk if available
-        self._load_from_disk()
 
-    def _load_from_disk(self) -> None:
-        """Load cache from disk."""
+    async def _load_from_disk(self) -> None:
+        """Load cache from disk (async)."""
         if not self._cache_file.exists():
             return
         
         try:
-            with open(self._cache_file, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                self._stops = data.get("stops", {})
-                last_update_str = data.get("last_update")
-                if last_update_str:
-                    self._last_update = datetime.fromisoformat(last_update_str)
-                    _LOGGER.info("Loaded GTFS cache from disk with %d stops (last update: %s)", 
-                                len(self._stops), self._last_update)
+            data = await file_util.read_json_file(self._cache_file)
+            self._stops = data.get("stops", {})
+            last_update_str = data.get("last_update")
+            if last_update_str:
+                self._last_update = datetime.fromisoformat(last_update_str)
+                _LOGGER.info("Loaded GTFS cache from disk with %d stops (last update: %s)", 
+                            len(self._stops), self._last_update)
         except Exception as err:
             _LOGGER.warning("Failed to load GTFS cache from disk: %s", err)
     
-    def _save_to_disk(self) -> None:
-        """Save cache to disk."""
+    async def _save_to_disk(self) -> None:
+        """Save cache to disk (async)."""
         try:
             # Ensure directory exists
-            self._cache_dir.mkdir(parents=True, exist_ok=True)
+            await asyncio.to_thread(self._cache_dir.mkdir, parents=True, exist_ok=True)
             
             data = {
                 "stops": self._stops,
                 "last_update": self._last_update.isoformat() if self._last_update else None,
             }
             
-            with open(self._cache_file, "w", encoding="utf-8") as f:
-                json.dump(data, f)
+            await file_util.write_json_file(self._cache_file, data)
             
             _LOGGER.debug("Saved GTFS cache to disk")
         except Exception as err:
@@ -77,11 +74,11 @@ class GTFSStopCache:
         """Get cached stops."""
         return self._stops
 
-    def update_stops(self, stops: dict[str, dict[str, str]]) -> None:
+    async def update_stops(self, stops: dict[str, dict[str, str]]) -> None:
         """Update cached stops."""
         self._stops = stops
         self._last_update = datetime.now()
-        self._save_to_disk()
+        await self._save_to_disk()
 
     def search(self, query: str, limit: int = 10) -> list[dict[str, Any]]:
         """Search stops by name or code."""
@@ -120,6 +117,7 @@ class GTFSDataHandler:
         """Initialize the handler."""
         self._session = session
         self._cache = GTFSStopCache(cache_dir)
+        self._cache_loaded = False
 
     async def get_gtfs_filename(self) -> str | None:
         """Get the current GTFS filename from the directory."""
@@ -271,9 +269,14 @@ class GTFSDataHandler:
 
     async def ensure_cache(self) -> None:
         """Ensure cache is populated and not expired."""
+        # Load cache from disk on first access
+        if not self._cache_loaded:
+            await self._cache._load_from_disk()
+            self._cache_loaded = True
+        
         if self._cache.is_expired():
             stops = await self.download_and_parse_stops()
-            self._cache.update_stops(stops)
+            await self._cache.update_stops(stops)
 
     async def search_stops(self, query: str, limit: int = 10) -> list[dict[str, str]]:
         """Search for stops by name or code."""

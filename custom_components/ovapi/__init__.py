@@ -82,11 +82,24 @@ class OVAPIDataUpdateCoordinator(DataUpdateCoordinator):
         """Update data via library."""
         try:
             stop_data = await self.client.get_stop_info(self.stop_code)
+            _LOGGER.debug("Fetched stop data for %s: %s keys", self.stop_code, len(stop_data))
+            
             passes = self.client.filter_passes(
                 stop_data,
                 line_number=self.line_number,
                 destination=self.destination,
             )
+            
+            _LOGGER.debug("Filtered %d passes (line: %s, dest: %s)", 
+                         len(passes), self.line_number, self.destination)
+            
+            if passes:
+                _LOGGER.debug("First pass: %s → %s at %s", 
+                             passes[0].get("line_number"),
+                             passes[0].get("destination"),
+                             passes[0].get("expected_arrival"))
+            
             return passes
         except Exception as err:
+            _LOGGER.error("Error communicating with API: %s", err)
             raise UpdateFailed(f"Error communicating with API: {err}") from err

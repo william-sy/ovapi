@@ -92,12 +92,18 @@ class OVAPICurrentBusSensor(OVAPIBaseSensor):
     @property
     def native_value(self) -> StateType:
         """Return the state of the sensor."""
-        if not self.coordinator.data or len(self.coordinator.data) == 0:
+        if not self.coordinator.data:
+            _LOGGER.debug("Current bus sensor: coordinator.data is None")
+            return None
+        
+        if len(self.coordinator.data) == 0:
+            _LOGGER.debug("Current bus sensor: no passes in coordinator.data")
             return None
         
         bus = self.coordinator.data[0]
         line = bus.get("line_number", "Unknown")
         destination = bus.get("destination", "Unknown")
+        _LOGGER.debug("Current bus sensor: %s → %s", line, destination)
         return f"{line} → {destination}"
 
     @property
