@@ -73,6 +73,11 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    @staticmethod
+    def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> config_entries.OptionsFlow:
+        """Get the options flow for this handler."""
+        return OVAPIOptionsFlow(config_entry)
+
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
@@ -420,3 +425,60 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Handle import from configuration.yaml."""
         self.context["stop_code"] = import_data[CONF_STOP_CODE]
         return await self.async_step_configure(import_data)
+
+
+class OVAPIOptionsFlow(config_entries.OptionsFlow):
+    """Handle options flow for OVAPI."""
+
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        """Initialize options flow."""
+        self.config_entry = config_entry
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Manage the options."""
+        if user_input is not None:
+            # Update the config entry data
+            new_data = {**self.config_entry.data, **user_input}
+            self.hass.config_entries.async_update_entry(
+                self.config_entry,
+                data=new_data,
+            )
+            # Reload the integration to apply changes
+            await self.hass.config_entries.async_reload(self.config_entry.entry_id)
+            return self.async_create_entry(title="", data={})
+
+        data_schema = vol.Schema(
+            {
+                vol.Optional(
+                    CONF_SCAN_INTERVAL,
+                    default=self.config_entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=MIN_SCAN_INTERVAL, 
+                        max=MAX_SCAN_INTERVAL, 
+                        step=1,
+                        mode=selector.NumberSelectorMode.BOX, 
+                        unit_of_measurement="seconds"
+                    )
+                ),
+                vol.Optional(
+                    CONF_WALKING_TIME,
+                    default=self.config_entry.data.get(CONF_WALKING_TIME, 0)
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=0, 
+                        max=60, 
+                        step=1, 
+                        mode=selector.NumberSelectorMode.BOX,
+                        unit_of_measurement="minutes"
+                    )
+                ),
+            }
+        )
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=data_schema,
+        )

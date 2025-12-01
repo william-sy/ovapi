@@ -60,6 +60,22 @@
       "already_configured": "This stop and line combination is already configured"
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Configure Options",
+        "description": "Update scan interval and walking time settings",
+        "data": {
+          "scan_interval": "Update Interval (seconds, 30-300)",
+          "walking_time": "Walking Time to Stop (0 = disabled, 1-60 minutes)"
+        },
+        "data_description": {
+          "scan_interval": "How often to check for new departures",
+          "walking_time": "Set to 0 to disable the walking planner sensor"
+        }
+      }
+    }
+  },
   "entity": {
     "sensor": {
       "current_bus": {
