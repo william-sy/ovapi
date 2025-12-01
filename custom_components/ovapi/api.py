@@ -46,24 +46,39 @@ class OVAPIClient:
     ) -> list[dict[str, Any]]:
         """Filter passes by line number and destination."""
         passes = []
+        total_passes_found = 0
         
         # OVAPI returns data in format: {stop_code: {TransportType: {DataOwnerCode: {LinePlanningNumber: {...}}}}}
         for stop_code, stop_info in stop_data.items():
             if stop_code == "stopareacode":
                 continue
+            
+            _LOGGER.debug("Processing stop_code: %s", stop_code)
                 
             for transport_type, transport_data in stop_info.items():
+                _LOGGER.debug("  Transport type: %s", transport_type)
                 for owner_code, owner_data in transport_data.items():
+                    _LOGGER.debug("    Owner code: %s", owner_code)
                     for line_key, line_data in owner_data.items():
+                        _LOGGER.debug("      Line key: %s", line_key)
                         # Extract passes
                         if "Passes" in line_data:
+                            _LOGGER.debug("        Found %d passes", len(line_data["Passes"]))
                             for pass_data in line_data["Passes"].values():
+                                total_passes_found += 1
+                                pass_line = pass_data.get("LinePublicNumber")
+                                pass_dest = pass_data.get("DestinationName50")
+                                
+                                _LOGGER.debug("          Pass: line=%s, dest=%s", pass_line, pass_dest)
+                                
                                 # Filter by line number
-                                if line_number and pass_data.get("LinePublicNumber") != line_number:
+                                if line_number and pass_line != line_number:
+                                    _LOGGER.debug("            Skipped: line filter (want %s, got %s)", line_number, pass_line)
                                     continue
                                 
                                 # Filter by destination
-                                if destination and destination.lower() not in pass_data.get("DestinationName50", "").lower():
+                                if destination and destination.lower() not in pass_dest.lower():
+                                    _LOGGER.debug("            Skipped: dest filter (want %s, got %s)", destination, pass_dest)
                                     continue
                                 
                                 passes.append({
@@ -77,6 +92,9 @@ class OVAPIClient:
                                     ),
                                     "transport_type": pass_data.get("TransportType"),
                                 })
+                                _LOGGER.debug("            MATCHED!")
+        
+        _LOGGER.debug("Total passes found: %d, After filtering: %d", total_passes_found, len(passes))
         
         # Sort by expected arrival time
         passes.sort(key=lambda x: x.get("expected_arrival", ""))

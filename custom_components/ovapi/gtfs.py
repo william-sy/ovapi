@@ -11,8 +11,6 @@ from typing import Any
 
 import aiohttp
 
-from homeassistant.util import file as file_util
-
 _LOGGER = logging.getLogger(__name__)
 
 GTFS_BASE_URL = "https://gtfs.ovapi.nl/govi"
@@ -37,7 +35,8 @@ class GTFSStopCache:
             return
         
         try:
-            data = await file_util.read_json_file(self._cache_file)
+            content = await asyncio.to_thread(self._cache_file.read_text, encoding="utf-8")
+            data = json.loads(content)
             self._stops = data.get("stops", {})
             last_update_str = data.get("last_update")
             if last_update_str:
@@ -58,7 +57,8 @@ class GTFSStopCache:
                 "last_update": self._last_update.isoformat() if self._last_update else None,
             }
             
-            await file_util.write_json_file(self._cache_file, data)
+            content = json.dumps(data)
+            await asyncio.to_thread(self._cache_file.write_text, content, "utf-8")
             
             _LOGGER.debug("Saved GTFS cache to disk")
         except Exception as err:

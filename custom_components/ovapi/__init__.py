@@ -83,6 +83,7 @@ class OVAPIDataUpdateCoordinator(DataUpdateCoordinator):
         try:
             stop_data = await self.client.get_stop_info(self.stop_code)
             _LOGGER.debug("Fetched stop data for %s: %s keys", self.stop_code, len(stop_data))
+            _LOGGER.debug("Stop data keys: %s", list(stop_data.keys()))
             
             passes = self.client.filter_passes(
                 stop_data,
