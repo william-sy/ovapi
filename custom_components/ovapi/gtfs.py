@@ -14,6 +14,7 @@ import aiohttp
 _LOGGER = logging.getLogger(__name__)
 
 GTFS_BASE_URL = "https://gtfs.ovapi.nl/govi"
+GTFS_FALLBACK_URL = "https://github.com/william-sy/ovapi/raw/refs/heads/main/rate_limit/gtfs-kv7.zip"
 GTFS_CACHE_DURATION = timedelta(days=1)  # Cache GTFS data for 1 day
 GTFS_CACHE_FILE = "ovapi_gtfs_cache.json"
 
@@ -143,13 +144,7 @@ class GTFSDataHandler:
                     if response.status == 200:
                         return filename
                 
-                # Try the rate_limit fallback file
-                filename = "rate_limit/gtfs-kv7.zip"
-                url = f"{GTFS_BASE_URL}/{filename}"
-                async with self._session.head(url) as response:
-                    if response.status == 200:
-                        _LOGGER.info("Using rate_limit fallback GTFS file")
-                        return filename
+                # Don't try rate_limit on OVAPI server - we use GitHub fallback instead during download
                 
                 _LOGGER.warning("Could not determine GTFS filename")
                 return None
@@ -172,21 +167,22 @@ class GTFSDataHandler:
                 async with self._session.get(url) as response:
                     # Handle rate limiting by trying fallback or using cached data
                     if response.status == 429:
-                        _LOGGER.warning("Rate limited by GTFS server (429), trying rate_limit fallback")
+                        _LOGGER.warning("Rate limited by GTFS server (429), trying GitHub fallback")
                         
-                        # Try rate_limit fallback
-                        fallback_url = f"{GTFS_BASE_URL}/rate_limit/gtfs-kv7.zip"
+                        # Try GitHub fallback with older but stable data
                         try:
-                            async with self._session.get(fallback_url) as fallback_response:
+                            async with self._session.get(GTFS_FALLBACK_URL) as fallback_response:
+                                _LOGGER.debug("GitHub fallback response status: %s", fallback_response.status)
                                 if fallback_response.status == 200:
-                                    _LOGGER.info("Using rate_limit fallback GTFS file")
+                                    _LOGGER.info("Successfully using GitHub fallback GTFS file from %s", GTFS_FALLBACK_URL)
                                     zip_data = await fallback_response.read()
                                     # Continue with normal parsing below
                                 else:
-                                    raise aiohttp.ClientError("Fallback also failed")
-                        except Exception:
-                            # Fallback failed, try cache
-                            _LOGGER.warning("Rate limit fallback failed, using cached data if available")
+                                    _LOGGER.warning("GitHub fallback returned status %s", fallback_response.status)
+                                    raise aiohttp.ClientError(f"GitHub fallback failed with status {fallback_response.status}")
+                        except Exception as fallback_err:
+                            # GitHub fallback failed, try cache
+                            _LOGGER.warning("GitHub fallback failed (%s), using cached data if available", fallback_err)
                             cached_stops = self._cache.get_stops()
                             if cached_stops:
                                 _LOGGER.info("Using %d cached stops", len(cached_stops))
