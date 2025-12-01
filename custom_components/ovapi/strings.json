@@ -36,8 +36,11 @@
         "data": {
           "line_number": "Line Number (optional)",
           "destination": "Destination Filter (optional)",
-          "walking_time": "Walking Time to Stop (minutes)",
+          "walking_time": "Walking Time to Stop (0 = disabled, 1-60 minutes)",
           "scan_interval": "Update Interval (seconds, 30-300)"
+        },
+        "data_description": {
+          "walking_time": "Set to 0 to disable the walking planner sensor. When enabled (1-60), creates a sensor that tells you when to leave."
         }
       }
     },

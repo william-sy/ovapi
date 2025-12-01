@@ -36,7 +36,8 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
     """Validate the user input allows us to connect."""
     session = async_get_clientsession(hass)
     client = OVAPIClient(session)
-    gtfs_handler = GTFSDataHandler(session)
+    cache_dir = Path(hass.config.path(DOMAIN))
+    gtfs_handler = GTFSDataHandler(session, cache_dir)
 
     # Try to fetch data for the stop code
     stop_data = await client.get_stop_info(data[CONF_STOP_CODE])
@@ -182,6 +183,10 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         stop_code = self.context.get("stop_code")
 
         if user_input is not None:
+            # Remove walking_time if it's 0 (disabled)
+            if user_input.get(CONF_WALKING_TIME, 0) == 0:
+                user_input.pop(CONF_WALKING_TIME, None)
+            
             # Merge stop code with configuration
             full_config = {CONF_STOP_CODE: stop_code, **user_input}
             
@@ -203,18 +208,29 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     data=full_config,
                 )
 
-        data_schema = vol.Schema(
-            {
-                vol.Optional(CONF_LINE_NUMBER): str,
-                vol.Optional(CONF_DESTINATION): str,
-                vol.Optional(CONF_WALKING_TIME, default=DEFAULT_WALKING_TIME): vol.All(
-                    vol.Coerce(int), vol.Range(min=1, max=60)
-                ),
-                vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): vol.All(
-                    vol.Coerce(int), vol.Range(min=MIN_SCAN_INTERVAL, max=MAX_SCAN_INTERVAL)
-                ),
-            }
-        )
+        # Fetch available destinations for this stop
+        destinations = await self._get_destinations_for_stop(stop_code)
+        
+        # Build schema with destination dropdown if available
+        schema_dict: dict[Any, Any] = {
+            vol.Optional(CONF_LINE_NUMBER): str,
+        }
+        
+        if destinations:
+            schema_dict[vol.Optional(CONF_DESTINATION)] = vol.In(destinations)
+        else:
+            schema_dict[vol.Optional(CONF_DESTINATION)] = str
+        
+        schema_dict.update({
+            vol.Optional(CONF_WALKING_TIME, default=0): vol.All(
+                vol.Coerce(int), vol.Range(min=0, max=60)
+            ),
+            vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): vol.All(
+                vol.Coerce(int), vol.Range(min=MIN_SCAN_INTERVAL, max=MAX_SCAN_INTERVAL)
+            ),
+        })
+        
+        data_schema = vol.Schema(schema_dict)
 
         return self.async_show_form(
             step_id="configure",
@@ -222,6 +238,34 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
             description_placeholders={"stop_code": stop_code},
         )
+
+    async def _get_destinations_for_stop(self, stop_code: str) -> list[str]:
+        """Get available destinations for a stop."""
+        try:
+            session = async_get_clientsession(self.hass)
+            client = OVAPIClient(session)
+            stop_data = await client.get_stop_info(stop_code)
+            
+            destinations = set()
+            
+            # Extract all unique destinations from the stop data
+            for stop_key, stop_info in stop_data.items():
+                if stop_key == "stopareacode":
+                    continue
+                    
+                for transport_type, transport_data in stop_info.items():
+                    for owner_code, owner_data in transport_data.items():
+                        for line_key, line_data in owner_data.items():
+                            if "Passes" in line_data:
+                                for pass_data in line_data["Passes"].values():
+                                    dest = pass_data.get("DestinationName50")
+                                    if dest:
+                                        destinations.add(dest)
+            
+            return sorted(list(destinations))
+        except Exception as err:
+            _LOGGER.debug("Could not fetch destinations: %s", err)
+            return []
 
     async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Handle reconfiguration of the integration."""
@@ -259,8 +303,8 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 ): str,
                 vol.Optional(
                     CONF_WALKING_TIME,
-                    default=entry.data.get(CONF_WALKING_TIME, DEFAULT_WALKING_TIME)
-                ): vol.All(vol.Coerce(int), vol.Range(min=1, max=60)),
+                    default=entry.data.get(CONF_WALKING_TIME, 0)
+                ): vol.All(vol.Coerce(int), vol.Range(min=0, max=60)),
                 vol.Optional(
                     CONF_SCAN_INTERVAL,
                     default=entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)

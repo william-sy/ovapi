@@ -37,15 +37,18 @@ async def async_setup_entry(
     coordinator: OVAPIDataUpdateCoordinator = entry.runtime_data
     walking_time: int = entry.data.get(CONF_WALKING_TIME, DEFAULT_WALKING_TIME)
 
-    sensors = [
+    sensors: list[SensorEntity] = [
         OVAPICurrentBusSensor(coordinator, entry),
         OVAPINextBusSensor(coordinator, entry),
         OVAPICurrentDelayTimeSensor(coordinator, entry),
         OVAPINextDelayTimeSensor(coordinator, entry),
-        OVAPIWalkingPlannerSensor(coordinator, entry, walking_time),
         OVAPICurrentDepartureTimeSensor(coordinator, entry),
         OVAPINextDepartureTimeSensor(coordinator, entry),
     ]
+    
+    # Only add walking planner sensor if walking time is configured (> 0)
+    if walking_time > 0:
+        sensors.append(OVAPIWalkingPlannerSensor(coordinator, entry, walking_time))
 
     async_add_entities(sensors)
 
