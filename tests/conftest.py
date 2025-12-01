@@ -3,10 +3,17 @@ from collections.abc import Generator
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from homeassistant.core import HomeAssistant
 
 from custom_components.ovapi.const import CONF_STOP_CODE, DOMAIN
+
+
+@pytest.fixture(autouse=True)
+def auto_enable_custom_integrations(enable_custom_integrations):
+    """Enable custom integrations."""
+    yield
 
 
 @pytest.fixture
@@ -22,7 +29,7 @@ def mock_setup_entry() -> Generator[AsyncMock]:
 def mock_ovapi_client():
     """Mock OVAPIClient."""
     with patch(
-        "custom_components.ovapi.config_flow.OVAPIClient", autospec=True
+        "custom_components.ovapi.api.OVAPIClient", autospec=True
     ) as mock_client:
         client = mock_client.return_value
         client.get_stop_info = AsyncMock(return_value={
@@ -62,7 +69,7 @@ def mock_ovapi_client():
 def mock_gtfs_handler():
     """Mock GTFSDataHandler."""
     with patch(
-        "custom_components.ovapi.config_flow.GTFSDataHandler", autospec=True
+        "custom_components.ovapi.gtfs.GTFSDataHandler", autospec=True
     ) as mock_handler:
         handler = mock_handler.return_value
         handler.search_stops = AsyncMock(return_value=[

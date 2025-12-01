@@ -2,25 +2,25 @@
   "config": {
     "step": {
       "user": {
-        "title": "Add OVAPI Bus Stop",
-        "description": "Choose how to add your bus stop",
+        "title": "Add OVAPI Stop",
+        "description": "Choose how to add your public transport stop",
         "menu_options": {
           "search": "Search for a stop",
           "manual": "Enter stop code manually"
         }
       },
       "search": {
-        "title": "Search for Bus Stop",
+        "title": "Search for Stop",
         "description": "Enter a stop name or location to search",
         "data": {
           "search_query": "Search Query"
         }
       },
       "select_stop": {
-        "title": "Select Bus Stop",
-        "description": "Choose your bus stop from the results",
+        "title": "Select Stop",
+        "description": "Choose your stop from the results",
         "data": {
-          "stop": "Bus Stop"
+          "stop": "Stop"
         }
       },
       "manual": {
@@ -31,10 +31,16 @@
         }
       },
       "configure": {
-        "title": "Select Line",
-        "description": "Choose which line to monitor at stop {stop_code}",
+        "title": "Configure Stop {stop_code}",
+        "description": "Configure monitoring options for this stop",
         "data": {
-          "line_number": "Line Number"
+          "line_number": "Line Number (optional)",
+          "destination": "Destination Filter (optional)",
+          "walking_time": "Walking Time to Stop (0 = disabled, 1-60 minutes)",
+          "scan_interval": "Update Interval (seconds, 30-300)"
+        },
+        "data_description": {
+          "walking_time": "Set to 0 to disable the walking planner sensor. When enabled (1-60), creates a sensor that tells you when to leave."
         }
       },
       "filter": {
@@ -76,25 +82,25 @@
       }
     }
   },
-  "entity": {
+    "entity": {
     "sensor": {
       "current_bus": {
-        "name": "Current"
+        "name": "Current vehicle"
       },
       "next_bus": {
-        "name": "Next"
+        "name": "Next vehicle"
       },
       "current_delay": {
-        "name": "Current delay"
+        "name": "Current vehicle delay"
       },
       "next_delay": {
-        "name": "Next delay"
+        "name": "Next vehicle delay"
       },
       "current_departure": {
-        "name": "Current departure"
+        "name": "Current vehicle departure"
       },
       "next_departure": {
-        "name": "Next departure"
+        "name": "Next vehicle departure"
       },
       "time_to_leave": {
         "name": "Time to leave"

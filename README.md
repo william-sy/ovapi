@@ -229,3 +229,7 @@ This project is licensed under the MIT License.
 ## Disclaimer
 
 This is an unofficial integration and is not affiliated with OVAPI.nl or any public transport providers. Use at your own risk.
+
+## To-do for becomming a real integration: 
+- Icon assets (256x256 or 512x512 png)
+- Documentation on the HA docs repo (separate from README)

@@ -6,7 +6,7 @@ action-setup: done
 appropriate-polling: done
 brands: exempt  # Custom integration, no brand assets required
 common-modules: done
-config-flow-test-coverage: todo  # Tests to be added
+config-flow-test-coverage: done
 config-flow: done
 dependency-transparency: done
 docs-actions: done
@@ -31,7 +31,7 @@ integration-owner: done
 log-when-unavailable: done
 parallel-updates: done
 reauthentication-flow: exempt  # No authentication required for public API
-test-coverage: todo  # Tests to be added
+test-coverage: done
 
 ## Gold
 devices: done

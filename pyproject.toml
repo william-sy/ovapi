@@ -1,6 +1,7 @@
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 norecursedirs = [".git", "testing_config"]
+asyncio_mode = "auto"
 
 [tool.coverage.run]
 source = ["custom_components/ovapi"]

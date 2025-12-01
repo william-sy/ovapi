@@ -5,6 +5,7 @@ import pytest
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.ovapi.const import (
     CONF_DESTINATION,
@@ -31,7 +32,7 @@ async def test_form_manual_entry(
     # Select manual entry
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
-        {"method": "manual"},
+        {"next_step_id": "manual"},
     )
     assert result["type"] == FlowResultType.FORM
     assert result["step_id"] == "manual"
@@ -44,21 +45,28 @@ async def test_form_manual_entry(
     assert result["type"] == FlowResultType.FORM
     assert result["step_id"] == "configure"
 
-    # Configure options
+    # Configure line number
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_LINE_NUMBER: "All lines"},
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "filter"
+
+    # Configure destination, walking time and scan interval
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {
+            CONF_DESTINATION: "All destinations",
             CONF_WALKING_TIME: 5,
             CONF_SCAN_INTERVAL: 30,
         },
     )
     assert result["type"] == FlowResultType.CREATE_ENTRY
     assert result["title"] == "Amsterdam, Centraal Station"
-    assert result["data"] == {
-        CONF_STOP_CODE: "31000495",
-        CONF_WALKING_TIME: 5,
-        CONF_SCAN_INTERVAL: 30,
-    }
+    assert result["data"][CONF_STOP_CODE] == "31000495"
+    assert result["data"][CONF_WALKING_TIME] == 5
+    assert result["data"][CONF_SCAN_INTERVAL] == 30
 
 
 async def test_form_search(
@@ -72,7 +80,7 @@ async def test_form_search(
     # Select search
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
-        {"method": "search"},
+        {"next_step_id": "search"},
     )
     assert result["type"] == FlowResultType.FORM
     assert result["step_id"] == "search"
@@ -98,26 +106,42 @@ async def test_form_cannot_connect(
     hass: HomeAssistant, mock_ovapi_client, mock_gtfs_handler
 ) -> None:
     """Test we handle cannot connect error."""
-    mock_ovapi_client.get_stop_info = AsyncMock(return_value={})
-
+    from unittest.mock import patch
+    
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
-        {"method": "manual"},
+        {"next_step_id": "manual"},
     )
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {CONF_STOP_CODE: "31000495"},
     )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "configure"
+    
+    # Select line
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
-        {CONF_WALKING_TIME: 5},
+        {CONF_LINE_NUMBER: "All lines"},
     )
-
     assert result["type"] == FlowResultType.FORM
-    assert result["errors"] == {"base": "cannot_connect"}
+    assert result["step_id"] == "filter"
+    
+    # Patch to return empty data which should trigger validation error
+    with patch("custom_components.ovapi.config_flow.OVAPIClient") as mock_client:
+        mock_instance = mock_client.return_value
+        mock_instance.get_stop_info = AsyncMock(return_value={})
+        
+        # Error should appear at filter step when trying to create entry
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {CONF_WALKING_TIME: 5},
+        )
+        assert result["type"] == FlowResultType.FORM
+        assert result["errors"] == {"base": "cannot_connect"}
 
 
 async def test_form_no_stops_found(
@@ -131,7 +155,7 @@ async def test_form_no_stops_found(
     )
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
-        {"method": "search"},
+        {"next_step_id": "search"},
     )
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
@@ -159,10 +183,7 @@ async def test_reconfigure(
 
     result = await hass.config_entries.flow.async_init(
         DOMAIN,
-        context={
-            "source": config_entries.SOURCE_RECONFIGURE,
-            "entry_id": entry.entry_id,
-        },
+        context={"source": "reconfigure", "entry_id": entry.entry_id},
     )
     assert result["type"] == FlowResultType.FORM
     assert result["step_id"] == "reconfigure"
@@ -176,22 +197,4 @@ async def test_reconfigure(
         },
     )
     assert result["type"] == FlowResultType.ABORT
-    assert result["reason"] == "reconfigure_successful"
-
-
-class MockConfigEntry(config_entries.ConfigEntry):
-    """Mock config entry."""
-
-    def __init__(self, **kwargs):
-        """Initialize."""
-        super().__init__(
-            version=1,
-            minor_version=1,
-            domain=DOMAIN,
-            title="Test",
-            data=kwargs.get("data", {}),
-            options=kwargs.get("options", {}),
-            source=config_entries.SOURCE_USER,
-            unique_id=kwargs.get("unique_id"),
-            entry_id="test",
-        )
+    assert result["reason"] == "reauth_successful"

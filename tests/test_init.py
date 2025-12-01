@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.ovapi.const import CONF_STOP_CODE, DOMAIN
 
@@ -50,20 +51,3 @@ async def test_unload_entry(
     await hass.async_block_till_done()
 
     assert entry.state == ConfigEntryState.NOT_LOADED
-
-
-class MockConfigEntry:
-    """Mock config entry."""
-
-    def __init__(self, **kwargs):
-        """Initialize."""
-        self.domain = kwargs.get("domain")
-        self.data = kwargs.get("data", {})
-        self.options = kwargs.get("options", {})
-        self.entry_id = "test"
-        self.state = ConfigEntryState.NOT_LOADED
-        self.runtime_data = None
-
-    def add_to_hass(self, hass):
-        """Add to hass."""
-        pass
