@@ -27,6 +27,24 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+# Transport type to icon mapping
+TRANSPORT_ICONS = {
+    "BUS": "mdi:bus",
+    "TRAM": "mdi:tram",
+    "METRO": "mdi:subway-variant",
+    "TRAIN": "mdi:train",
+    "FERRY": "mdi:ferry",
+}
+
+# Transport type to friendly name mapping
+TRANSPORT_NAMES = {
+    "BUS": "Bus",
+    "TRAM": "Tram",
+    "METRO": "Metro",
+    "TRAIN": "Train",
+    "FERRY": "Ferry",
+}
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -66,19 +84,34 @@ class OVAPIBaseSensor(CoordinatorEntity[OVAPIDataUpdateCoordinator], SensorEntit
         """Initialize the sensor."""
         super().__init__(coordinator)
         self._entry = entry
+        
+        # Determine transport type from first available pass
+        transport_type = "BUS"  # Default
+        if coordinator.data and len(coordinator.data) > 0:
+            transport_type = coordinator.data[0].get("transport_type", "BUS")
+        
+        transport_name = TRANSPORT_NAMES.get(transport_type, "Transport")
+        
         self._attr_device_info = {
             "identifiers": {(DOMAIN, entry.entry_id)},
-            "name": f"Bus Stop {coordinator.stop_code}",
+            "name": f"{transport_name} Stop {coordinator.stop_code}",
             "manufacturer": "OVAPI",
-            "model": "Bus Stop",
+            "model": f"{transport_name} Stop",
         }
 
 
 class OVAPICurrentBusSensor(OVAPIBaseSensor):
-    """Sensor for current/next upcoming bus."""
+    """Sensor for current/next upcoming transport."""
 
-    _attr_icon = "mdi:bus"
     _attr_translation_key = "current_bus"
+
+    @property
+    def icon(self) -> str:
+        """Return the icon based on transport type."""
+        if self.coordinator.data and len(self.coordinator.data) > 0:
+            transport_type = self.coordinator.data[0].get("transport_type", "BUS")
+            return TRANSPORT_ICONS.get(transport_type, "mdi:bus")
+        return "mdi:bus"
 
     def __init__(
         self,
@@ -124,11 +157,18 @@ class OVAPICurrentBusSensor(OVAPIBaseSensor):
 
 
 class OVAPINextBusSensor(OVAPIBaseSensor):
-    """Sensor for the bus after the current one."""
+    """Sensor for the transport after the current one."""
 
-    _attr_icon = "mdi:bus-clock"
     _attr_translation_key = "next_bus"
     _attr_entity_registry_enabled_default = False
+
+    @property
+    def icon(self) -> str:
+        """Return the icon based on transport type."""
+        if self.coordinator.data and len(self.coordinator.data) > 1:
+            transport_type = self.coordinator.data[1].get("transport_type", "BUS")
+            return TRANSPORT_ICONS.get(transport_type, "mdi:bus-clock")
+        return "mdi:bus-clock"
 
     def __init__(
         self,

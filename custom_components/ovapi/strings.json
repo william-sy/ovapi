@@ -63,22 +63,22 @@
   "entity": {
     "sensor": {
       "current_bus": {
-        "name": "Current bus"
+        "name": "Current"
       },
       "next_bus": {
-        "name": "Next bus"
+        "name": "Next"
       },
       "current_delay": {
-        "name": "Current bus delay"
+        "name": "Current delay"
       },
       "next_delay": {
-        "name": "Next bus delay"
+        "name": "Next delay"
       },
       "current_departure": {
-        "name": "Current bus departure"
+        "name": "Current departure"
       },
       "next_departure": {
-        "name": "Next bus departure"
+        "name": "Next departure"
       },
       "time_to_leave": {
         "name": "Time to leave"
