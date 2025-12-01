@@ -13,6 +13,7 @@ from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers import selector
 
 from .api import OVAPIClient
 from .gtfs import GTFSDataHandler
@@ -217,16 +218,24 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         }
         
         if destinations:
-            schema_dict[vol.Optional(CONF_DESTINATION)] = vol.In(destinations)
+            schema_dict[vol.Optional(CONF_DESTINATION)] = selector.SelectSelector(
+                selector.SelectSelectorConfig(options=destinations, mode=selector.SelectSelectorMode.DROPDOWN)
+            )
         else:
             schema_dict[vol.Optional(CONF_DESTINATION)] = str
         
         schema_dict.update({
-            vol.Optional(CONF_WALKING_TIME, default=0): vol.All(
-                vol.Coerce(int), vol.Range(min=0, max=60)
+            vol.Optional(CONF_WALKING_TIME, default=0): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=0, max=60, step=1, mode=selector.NumberSelectorMode.BOX,
+                    unit_of_measurement="minutes"
+                )
             ),
-            vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): vol.All(
-                vol.Coerce(int), vol.Range(min=MIN_SCAN_INTERVAL, max=MAX_SCAN_INTERVAL)
+            vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=MIN_SCAN_INTERVAL, max=MAX_SCAN_INTERVAL, step=1,
+                    mode=selector.NumberSelectorMode.BOX, unit_of_measurement="seconds"
+                )
             ),
         })
         
@@ -304,11 +313,21 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Optional(
                     CONF_WALKING_TIME,
                     default=entry.data.get(CONF_WALKING_TIME, 0)
-                ): vol.All(vol.Coerce(int), vol.Range(min=0, max=60)),
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=0, max=60, step=1, mode=selector.NumberSelectorMode.BOX,
+                        unit_of_measurement="minutes"
+                    )
+                ),
                 vol.Optional(
                     CONF_SCAN_INTERVAL,
                     default=entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
-                ): vol.All(vol.Coerce(int), vol.Range(min=MIN_SCAN_INTERVAL, max=MAX_SCAN_INTERVAL)),
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=MIN_SCAN_INTERVAL, max=MAX_SCAN_INTERVAL, step=1,
+                        mode=selector.NumberSelectorMode.BOX, unit_of_measurement="seconds"
+                    )
+                ),
             }
         )
 

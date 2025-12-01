@@ -143,6 +143,14 @@ class GTFSDataHandler:
                     if response.status == 200:
                         return filename
                 
+                # Try the rate_limit fallback file
+                filename = "rate_limit/gtfs-kv7.zip"
+                url = f"{GTFS_BASE_URL}/{filename}"
+                async with self._session.head(url) as response:
+                    if response.status == 200:
+                        _LOGGER.info("Using rate_limit fallback GTFS file")
+                        return filename
+                
                 _LOGGER.warning("Could not determine GTFS filename")
                 return None
                 
@@ -162,23 +170,37 @@ class GTFSDataHandler:
         try:
             async with asyncio.timeout(30):
                 async with self._session.get(url) as response:
-                    # Handle rate limiting by using cached data
+                    # Handle rate limiting by trying fallback or using cached data
                     if response.status == 429:
-                        _LOGGER.warning("Rate limited by GTFS server (429), using cached data if available")
-                        cached_stops = self._cache.get_stops()
-                        if cached_stops:
-                            _LOGGER.info("Using %d cached stops", len(cached_stops))
-                            return cached_stops
-                        raise aiohttp.ClientResponseError(
-                            request_info=response.request_info,
-                            history=response.history,
-                            status=response.status,
-                            message="Rate limited and no cache available",
-                            headers=response.headers,
-                        )
-                    
-                    response.raise_for_status()
-                    zip_data = await response.read()
+                        _LOGGER.warning("Rate limited by GTFS server (429), trying rate_limit fallback")
+                        
+                        # Try rate_limit fallback
+                        fallback_url = f"{GTFS_BASE_URL}/rate_limit/gtfs-kv7.zip"
+                        try:
+                            async with self._session.get(fallback_url) as fallback_response:
+                                if fallback_response.status == 200:
+                                    _LOGGER.info("Using rate_limit fallback GTFS file")
+                                    zip_data = await fallback_response.read()
+                                    # Continue with normal parsing below
+                                else:
+                                    raise aiohttp.ClientError("Fallback also failed")
+                        except Exception:
+                            # Fallback failed, try cache
+                            _LOGGER.warning("Rate limit fallback failed, using cached data if available")
+                            cached_stops = self._cache.get_stops()
+                            if cached_stops:
+                                _LOGGER.info("Using %d cached stops", len(cached_stops))
+                                return cached_stops
+                            raise aiohttp.ClientResponseError(
+                                request_info=response.request_info,
+                                history=response.history,
+                                status=response.status,
+                                message="Rate limited and no cache available",
+                                headers=response.headers,
+                            )
+                    else:
+                        response.raise_for_status()
+                        zip_data = await response.read()   )
 
             # Parse the ZIP file
             stops: dict[str, dict[str, Any]] = {}
