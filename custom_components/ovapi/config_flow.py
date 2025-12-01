@@ -182,17 +182,61 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_configure(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Handle the configuration step."""
+        """Handle the configuration step - select line number."""
         errors: dict[str, str] = {}
         stop_code = self.context.get("stop_code")
+
+        if user_input is not None:
+            # Store line number selection and move to filter step
+            self.context["line_number"] = user_input.get(CONF_LINE_NUMBER)
+            return await self.async_step_filter()
+
+        # Fetch available line numbers for this stop
+        lines = await self._get_lines_for_stop(stop_code)
+        
+        # Build schema with line number dropdown if available
+        schema_dict: dict[Any, Any] = {}
+        
+        if lines:
+            # Add "All lines" option
+            line_options = ["All lines"] + lines
+            schema_dict[vol.Optional(CONF_LINE_NUMBER, default="All lines")] = selector.SelectSelector(
+                selector.SelectSelectorConfig(options=line_options, mode=selector.SelectSelectorMode.DROPDOWN)
+            )
+        else:
+            schema_dict[vol.Optional(CONF_LINE_NUMBER)] = str
+        
+        data_schema = vol.Schema(schema_dict)
+
+        return self.async_show_form(
+            step_id="configure",
+            data_schema=data_schema,
+            errors=errors,
+            description_placeholders={"stop_code": stop_code},
+        )
+
+    async def async_step_filter(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Handle the filter step - select destination and timing."""
+        errors: dict[str, str] = {}
+        stop_code = self.context.get("stop_code")
+        line_number = self.context.get("line_number")
+        
+        # Convert "All lines" to None
+        if line_number == "All lines":
+            line_number = None
 
         if user_input is not None:
             # Remove walking_time if it's 0 (disabled)
             if user_input.get(CONF_WALKING_TIME, 0) == 0:
                 user_input.pop(CONF_WALKING_TIME, None)
             
-            # Merge stop code with configuration
-            full_config = {CONF_STOP_CODE: stop_code, **user_input}
+            # Build final configuration
+            full_config = {CONF_STOP_CODE: stop_code}
+            if line_number:
+                full_config[CONF_LINE_NUMBER] = line_number
+            full_config.update(user_input)
             
             try:
                 info = await validate_input(self.hass, full_config)
@@ -203,7 +247,7 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "unknown"
             else:
                 # Create a unique ID based on stop code and line number
-                unique_id = f"{stop_code}_{user_input.get(CONF_LINE_NUMBER, 'all')}"
+                unique_id = f"{stop_code}_{line_number or 'all'}"
                 await self.async_set_unique_id(unique_id)
                 self._abort_if_unique_id_configured()
 
@@ -212,17 +256,17 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     data=full_config,
                 )
 
-        # Fetch available destinations for this stop
-        destinations = await self._get_destinations_for_stop(stop_code)
+        # Fetch available destinations for this stop and line
+        destinations = await self._get_destinations_for_stop(stop_code, line_number)
         
-        # Build schema with destination dropdown if available
-        schema_dict: dict[Any, Any] = {
-            vol.Optional(CONF_LINE_NUMBER): str,
-        }
+        # Build schema
+        schema_dict: dict[Any, Any] = {}
         
         if destinations:
-            schema_dict[vol.Optional(CONF_DESTINATION)] = selector.SelectSelector(
-                selector.SelectSelectorConfig(options=destinations, mode=selector.SelectSelectorMode.DROPDOWN)
+            # Add "All destinations" option
+            dest_options = ["All destinations"] + destinations
+            schema_dict[vol.Optional(CONF_DESTINATION, default="All destinations")] = selector.SelectSelector(
+                selector.SelectSelectorConfig(options=dest_options, mode=selector.SelectSelectorMode.DROPDOWN)
             )
         else:
             schema_dict[vol.Optional(CONF_DESTINATION)] = str
@@ -243,16 +287,45 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         })
         
         data_schema = vol.Schema(schema_dict)
+        
+        placeholders = {"stop_code": stop_code}
+        if line_number:
+            placeholders["line_number"] = line_number
 
         return self.async_show_form(
-            step_id="configure",
+            step_id="filter",
             data_schema=data_schema,
             errors=errors,
-            description_placeholders={"stop_code": stop_code},
+            description_placeholders=placeholders,
         )
 
-    async def _get_destinations_for_stop(self, stop_code: str) -> list[str]:
-        """Get available destinations for a stop."""
+    async def _get_lines_for_stop(self, stop_code: str) -> list[str]:
+        """Get available line numbers for a stop."""
+        try:
+            session = async_get_clientsession(self.hass)
+            client = OVAPIClient(session)
+            stop_data = await client.get_stop_info(stop_code)
+            
+            lines = set()
+            
+            # Extract all unique line numbers from the stop data
+            for stop_key, stop_info in stop_data.items():
+                if not isinstance(stop_info, dict):
+                    continue
+                    
+                if "Passes" in stop_info:
+                    for pass_data in stop_info["Passes"].values():
+                        line = pass_data.get("LinePublicNumber")
+                        if line:
+                            lines.add(line)
+            
+            return sorted(list(lines))
+        except Exception as err:
+            _LOGGER.debug("Could not fetch line numbers: %s", err)
+            return []
+
+    async def _get_destinations_for_stop(self, stop_code: str, line_number: str | None = None) -> list[str]:
+        """Get available destinations for a stop, optionally filtered by line."""
         try:
             session = async_get_clientsession(self.hass)
             client = OVAPIClient(session)
@@ -260,19 +333,22 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             
             destinations = set()
             
-            # Extract all unique destinations from the stop data
+            # Extract unique destinations from the stop data
             for stop_key, stop_info in stop_data.items():
-                if stop_key == "stopareacode":
+                if not isinstance(stop_info, dict):
                     continue
                     
-                for transport_type, transport_data in stop_info.items():
-                    for owner_code, owner_data in transport_data.items():
-                        for line_key, line_data in owner_data.items():
-                            if "Passes" in line_data:
-                                for pass_data in line_data["Passes"].values():
-                                    dest = pass_data.get("DestinationName50")
-                                    if dest:
-                                        destinations.add(dest)
+                if "Passes" in stop_info:
+                    for pass_data in stop_info["Passes"].values():
+                        # Filter by line if specified
+                        if line_number:
+                            pass_line = pass_data.get("LinePublicNumber")
+                            if pass_line != line_number:
+                                continue
+                        
+                        dest = pass_data.get("DestinationName50")
+                        if dest:
+                            destinations.add(dest)
             
             return sorted(list(destinations))
         except Exception as err:

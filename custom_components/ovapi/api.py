@@ -52,31 +52,22 @@ class OVAPIClient:
             if not isinstance(stop_info, dict):
                 continue
             
-            _LOGGER.debug("Processing stop_code: %s", stop_code)
-            
             # Check if we have the new format with "Passes" directly
             if "Passes" in stop_info:
-                _LOGGER.debug("Found Passes key with %d passes", len(stop_info["Passes"]))
                 for pass_key, pass_data in stop_info["Passes"].items():
                     pass_line = pass_data.get("LinePublicNumber")
                     pass_dest = pass_data.get("DestinationName50")
                     
-                    _LOGGER.debug("  Pass: line=%s, dest=%s, status=%s", 
-                                 pass_line, pass_dest, pass_data.get("TripStopStatus"))
-                    
                     # Skip passed buses
                     if pass_data.get("TripStopStatus") == "PASSED":
-                        _LOGGER.debug("    Skipped: already passed")
                         continue
                     
                     # Filter by line number
                     if line_number and pass_line != line_number:
-                        _LOGGER.debug("    Skipped: line filter (want %s, got %s)", line_number, pass_line)
                         continue
                     
                     # Filter by destination
                     if destination and destination.lower() not in pass_dest.lower():
-                        _LOGGER.debug("    Skipped: dest filter (want %s, got %s)", destination, pass_dest)
                         continue
                     
                     passes.append({
@@ -90,9 +81,6 @@ class OVAPIClient:
                         ),
                         "transport_type": pass_data.get("TransportType"),
                     })
-                    _LOGGER.debug("    MATCHED!")
-        
-        _LOGGER.debug("Total passes after filtering: %d", len(passes))
         
         # Sort by expected arrival time
         passes.sort(key=lambda x: x.get("expected_arrival", ""))

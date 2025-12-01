@@ -31,16 +31,23 @@
         }
       },
       "configure": {
-        "title": "Configure Stop",
-        "description": "Configure monitoring options for this stop",
+        "title": "Select Line",
+        "description": "Choose which line to monitor at stop {stop_code}",
         "data": {
-          "line_number": "Line Number (optional)",
-          "destination": "Destination Filter (optional)",
+          "line_number": "Line Number"
+        }
+      },
+      "filter": {
+        "title": "Configure Filters",
+        "description": "Configure destination and timing options for stop {stop_code}",
+        "data": {
+          "destination": "Destination",
           "walking_time": "Walking Time to Stop (0 = disabled, 1-60 minutes)",
           "scan_interval": "Update Interval (seconds, 30-300)"
         },
         "data_description": {
-          "walking_time": "Set to 0 to disable the walking planner sensor. When enabled (1-60), creates a sensor that tells you when to leave."
+          "walking_time": "Set to 0 to disable the walking planner sensor. When enabled (1-60), creates a sensor that tells you when to leave.",
+          "destination": "Choose which destination to monitor, or select 'All destinations' to see all buses on this line."
         }
       }
     },

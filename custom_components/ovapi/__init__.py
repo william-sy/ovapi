@@ -68,8 +68,9 @@ class OVAPIDataUpdateCoordinator(DataUpdateCoordinator):
         """Initialize."""
         self.client = client
         self.stop_code = stop_code
+        # Convert "All destinations" to None for filtering
         self.line_number = line_number
-        self.destination = destination
+        self.destination = None if destination == "All destinations" else destination
 
         super().__init__(
             hass,
@@ -82,23 +83,12 @@ class OVAPIDataUpdateCoordinator(DataUpdateCoordinator):
         """Update data via library."""
         try:
             stop_data = await self.client.get_stop_info(self.stop_code)
-            _LOGGER.debug("Fetched stop data for %s: %s keys", self.stop_code, len(stop_data))
-            _LOGGER.debug("Stop data keys: %s", list(stop_data.keys()))
             
             passes = self.client.filter_passes(
                 stop_data,
                 line_number=self.line_number,
                 destination=self.destination,
             )
-            
-            _LOGGER.debug("Filtered %d passes (line: %s, dest: %s)", 
-                         len(passes), self.line_number, self.destination)
-            
-            if passes:
-                _LOGGER.debug("First pass: %s → %s at %s", 
-                             passes[0].get("line_number"),
-                             passes[0].get("destination"),
-                             passes[0].get("expected_arrival"))
             
             return passes
         except Exception as err:
