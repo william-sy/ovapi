@@ -32,6 +32,40 @@ A custom Home Assistant integration that provides real-time bus information from
 
 This integration is not yet available in HACS but can be added as a custom repository.
 
+## Screenshots
+
+### Configuration Flow
+
+The integration provides an easy-to-use configuration interface:
+
+**Step 1: Choose Setup Method**
+
+![Setup Method](Screenshots/Step-1.png)
+
+**Step 2: Search for Stop**
+
+![Search for Stop](Screenshots/Step-2.png)
+
+**Step 3: Select Stop from Results**
+
+![Select Stop](Screenshots/step-3.png)
+
+**Step 4: Configure Line Filter**
+
+![Line Filter](Screenshots/Step-4.png)
+
+**Step 5: Configure Destination Filter**
+
+![Destination Filter](Screenshots/Step-5.png)
+
+**Step 6: Configure Walking Time and Update Interval**
+
+![Walking Time and Update](Screenshots/Step-6.png)
+
+**Result: Integration Added**
+
+![Integration Added](Screenshots/Result.png)
+
 ## Configuration
 
 ### Through the UI (Recommended)
