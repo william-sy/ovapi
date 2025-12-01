@@ -1,0 +1,78 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add OVAPI Bus Stop",
+        "description": "Choose how to add your bus stop",
+        "menu_options": {
+          "search": "Search for a stop",
+          "manual": "Enter stop code manually"
+        }
+      },
+      "search": {
+        "title": "Search for Bus Stop",
+        "description": "Enter a stop name or location to search",
+        "data": {
+          "search_query": "Search Query"
+        }
+      },
+      "select_stop": {
+        "title": "Select Bus Stop",
+        "description": "Choose your bus stop from the results",
+        "data": {
+          "stop": "Bus Stop"
+        }
+      },
+      "manual": {
+        "title": "Enter Stop Code",
+        "description": "Enter your bus stop code manually",
+        "data": {
+          "stop_code": "Stop Code"
+        }
+      },
+      "configure": {
+        "title": "Configure Stop {stop_code}",
+        "description": "Configure monitoring options for this stop",
+        "data": {
+          "line_number": "Line Number (optional)",
+          "destination": "Destination Filter (optional)",
+          "walking_time": "Walking Time to Stop (minutes)",
+          "scan_interval": "Update Interval (seconds, 30-300)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to OVAPI. Please check the stop code.",
+      "unknown": "Unexpected error occurred",
+      "no_stops_found": "No stops found matching your search. Try a different query."
+    },
+    "abort": {
+      "already_configured": "This stop and line combination is already configured"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "current_bus": {
+        "name": "Current bus"
+      },
+      "next_bus": {
+        "name": "Next bus"
+      },
+      "current_delay": {
+        "name": "Current bus delay"
+      },
+      "next_delay": {
+        "name": "Next bus delay"
+      },
+      "current_departure": {
+        "name": "Current bus departure"
+      },
+      "next_departure": {
+        "name": "Next bus departure"
+      },
+      "time_to_leave": {
+        "name": "Time to leave"
+      }
+    }
+  }
+}

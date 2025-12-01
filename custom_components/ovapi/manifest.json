@@ -1,0 +1,12 @@
+{
+  "domain": "ovapi",
+  "name": "OVAPI Bus Information",
+  "codeowners": ["@william"],
+  "config_flow": true,
+  "documentation": "https://github.com/william/ovapi",
+  "issue_tracker": "https://github.com/william/ovapi/issues",
+  "requirements": ["aiohttp>=3.8.0"],
+  "version": "1.0.0",
+  "iot_class": "cloud_polling",
+  "quality_scale": "platinum"
+}

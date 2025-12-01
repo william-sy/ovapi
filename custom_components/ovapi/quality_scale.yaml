@@ -1,0 +1,62 @@
+# Quality Scale tracking for OVAPI integration
+# Target: Platinum Tier
+
+## Bronze
+action-setup: done
+appropriate-polling: done
+brands: exempt  # Custom integration, no brand assets required
+common-modules: done
+config-flow-test-coverage: todo  # Tests to be added
+config-flow: done
+dependency-transparency: done
+docs-actions: done
+docs-high-level-description: done
+docs-installation-instructions: done
+docs-removal-instructions: done
+entity-event-setup: done
+entity-unique-id: done
+has-entity-name: done
+runtime-data: done
+test-before-configure: done
+test-before-setup: done
+unique-config-entry: done
+
+## Silver
+action-exceptions: done
+config-entry-unloading: done
+docs-configuration-parameters: done
+docs-installation-parameters: done
+entity-unavailable: done
+integration-owner: done
+log-when-unavailable: done
+parallel-updates: done
+reauthentication-flow: exempt  # No authentication required for public API
+test-coverage: todo  # Tests to be added
+
+## Gold
+devices: done
+diagnostics: done
+discovery-update-info: exempt  # No discovery for bus stops
+discovery: exempt  # Manual configuration appropriate for transit
+docs-data-update: done
+docs-examples: done
+docs-known-limitations: done
+docs-supported-devices: done
+docs-supported-functions: done
+docs-troubleshooting: done
+docs-use-cases: done
+dynamic-devices: exempt  # Single device per entry
+entity-category: done
+entity-device-class: done
+entity-disabled-by-default: done
+entity-translations: done
+exception-translations: done
+icon-translations: done
+reconfiguration-flow: done
+repair-issues: exempt  # No repairs needed for current functionality
+stale-devices: exempt  # No dynamic device removal needed
+
+## Platinum
+async-dependency: done  # Using aiohttp
+inject-websession: done  # Session injected in API client
+strict-typing: done  # All code fully typed
