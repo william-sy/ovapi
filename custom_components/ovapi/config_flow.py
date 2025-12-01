@@ -16,7 +16,6 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers import selector
 
 from .api import OVAPIClient
-from .gtfs import GTFSDataHandler
 from .const import (
     CONF_DESTINATION,
     CONF_LINE_NUMBER,
@@ -35,6 +34,8 @@ _LOGGER = logging.getLogger(__name__)
 
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
     """Validate the user input allows us to connect."""
+    from .gtfs import GTFSDataHandler  # Lazy import to avoid blocking
+    
     session = async_get_clientsession(hass)
     client = OVAPIClient(session)
     cache_dir = Path(hass.config.path(DOMAIN))
@@ -90,6 +91,8 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Handle the search step."""
+        from .gtfs import GTFSDataHandler  # Lazy import to avoid blocking
+        
         errors: dict[str, str] = {}
 
         if user_input is not None:

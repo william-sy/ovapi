@@ -200,7 +200,7 @@ class GTFSDataHandler:
                             )
                     else:
                         response.raise_for_status()
-                        zip_data = await response.read()   )
+                        zip_data = await response.read()
 
             # Parse the ZIP file
             stops: dict[str, dict[str, Any]] = {}
