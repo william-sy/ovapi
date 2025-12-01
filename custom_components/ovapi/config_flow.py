@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
 
 import aiohttp
@@ -92,7 +93,8 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             try:
                 session = async_get_clientsession(self.hass)
-                gtfs_handler = GTFSDataHandler(session)
+                cache_dir = Path(self.hass.config.path(DOMAIN))
+                gtfs_handler = GTFSDataHandler(session, cache_dir)
                 
                 results = await gtfs_handler.search_stops(
                     user_input["search_query"], limit=20
@@ -134,10 +136,12 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         # Build options from search results
         results = self.context.get("search_results", [])
-        options = {
-            f"{stop['stop_code']} - {stop['stop_name']}": f"{stop['stop_code']} - {stop['stop_name']}"
-            for stop in results
-        }
+        options = {}
+        for stop in results:
+            label = f"{stop['stop_code']} - {stop['stop_name']}"
+            if stop.get("routes"):
+                label += f" (Lines: {stop['routes']})"
+            options[label] = label
 
         return self.async_show_form(
             step_id="select_stop",
@@ -156,8 +160,7 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             self.context["stop_code"] = user_input[CONF_STOP_CODE]
-            self.context["manual_config"] = user_input
-            return await self.async_step_configure(user_input)
+            return await self.async_step_configure()
 
         data_schema = vol.Schema(
             {

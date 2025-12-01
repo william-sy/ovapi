@@ -1,10 +1,12 @@
 """GTFS data handler for OVAPI integration."""
 import asyncio
 import csv
+import json
 import logging
 import zipfile
 from datetime import datetime, timedelta
 from io import BytesIO, StringIO
+from pathlib import Path
 from typing import Any
 
 import aiohttp
@@ -13,15 +15,56 @@ _LOGGER = logging.getLogger(__name__)
 
 GTFS_BASE_URL = "https://gtfs.ovapi.nl/govi"
 GTFS_CACHE_DURATION = timedelta(days=1)  # Cache GTFS data for 1 day
+GTFS_CACHE_FILE = "ovapi_gtfs_cache.json"
 
 
 class GTFSStopCache:
     """Cache for GTFS stop data."""
 
-    def __init__(self) -> None:
+    def __init__(self, cache_dir: Path) -> None:
         """Initialize the cache."""
         self._stops: dict[str, dict[str, str]] = {}
         self._last_update: datetime | None = None
+        self._cache_dir = cache_dir
+        self._cache_file = cache_dir / GTFS_CACHE_FILE
+        
+        # Load cache from disk if available
+        self._load_from_disk()
+
+    def _load_from_disk(self) -> None:
+        """Load cache from disk."""
+        if not self._cache_file.exists():
+            return
+        
+        try:
+            with open(self._cache_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                self._stops = data.get("stops", {})
+                last_update_str = data.get("last_update")
+                if last_update_str:
+                    self._last_update = datetime.fromisoformat(last_update_str)
+                    _LOGGER.info("Loaded GTFS cache from disk with %d stops (last update: %s)", 
+                                len(self._stops), self._last_update)
+        except Exception as err:
+            _LOGGER.warning("Failed to load GTFS cache from disk: %s", err)
+    
+    def _save_to_disk(self) -> None:
+        """Save cache to disk."""
+        try:
+            # Ensure directory exists
+            self._cache_dir.mkdir(parents=True, exist_ok=True)
+            
+            data = {
+                "stops": self._stops,
+                "last_update": self._last_update.isoformat() if self._last_update else None,
+            }
+            
+            with open(self._cache_file, "w", encoding="utf-8") as f:
+                json.dump(data, f)
+            
+            _LOGGER.debug("Saved GTFS cache to disk")
+        except Exception as err:
+            _LOGGER.warning("Failed to save GTFS cache to disk: %s", err)
 
     def is_expired(self) -> bool:
         """Check if cache is expired."""
@@ -37,8 +80,9 @@ class GTFSStopCache:
         """Update cached stops."""
         self._stops = stops
         self._last_update = datetime.now()
+        self._save_to_disk()
 
-    def search(self, query: str, limit: int = 10) -> list[dict[str, str]]:
+    def search(self, query: str, limit: int = 10) -> list[dict[str, Any]]:
         """Search stops by name or code."""
         query_lower = query.lower()
         results = []
@@ -48,12 +92,19 @@ class GTFSStopCache:
             
             # Match on stop code or stop name
             if query_lower in stop_code.lower() or query_lower in stop_name:
-                results.append({
+                result = {
                     "stop_code": stop_code,
                     "stop_name": stop_data.get("stop_name", ""),
                     "stop_lat": stop_data.get("stop_lat", ""),
                     "stop_lon": stop_data.get("stop_lon", ""),
-                })
+                }
+                
+                # Add routes/lines info if available
+                routes = stop_data.get("routes", [])
+                if routes:
+                    result["routes"] = ", ".join(sorted(set(routes))[:5])  # Show up to 5 routes
+                
+                results.append(result)
                 
                 if len(results) >= limit:
                     break
@@ -64,10 +115,10 @@ class GTFSStopCache:
 class GTFSDataHandler:
     """Handler for GTFS data from OVAPI."""
 
-    def __init__(self, session: aiohttp.ClientSession) -> None:
+    def __init__(self, session: aiohttp.ClientSession, cache_dir: Path) -> None:
         """Initialize the handler."""
         self._session = session
-        self._cache = GTFSStopCache()
+        self._cache = GTFSStopCache(cache_dir)
 
     async def get_gtfs_filename(self) -> str | None:
         """Get the current GTFS filename from the directory."""
@@ -111,17 +162,34 @@ class GTFSDataHandler:
         try:
             async with asyncio.timeout(30):
                 async with self._session.get(url) as response:
+                    # Handle rate limiting by using cached data
+                    if response.status == 429:
+                        _LOGGER.warning("Rate limited by GTFS server (429), using cached data if available")
+                        cached_stops = self._cache.get_stops()
+                        if cached_stops:
+                            _LOGGER.info("Using %d cached stops", len(cached_stops))
+                            return cached_stops
+                        raise aiohttp.ClientResponseError(
+                            request_info=response.request_info,
+                            history=response.history,
+                            status=response.status,
+                            message="Rate limited and no cache available",
+                            headers=response.headers,
+                        )
+                    
                     response.raise_for_status()
                     zip_data = await response.read()
 
             # Parse the ZIP file
-            stops = {}
+            stops: dict[str, dict[str, Any]] = {}
+            trip_routes: dict[str, str] = {}  # trip_id -> route_short_name
+            
             with zipfile.ZipFile(BytesIO(zip_data)) as zip_file:
                 if "stops.txt" not in zip_file.namelist():
                     raise ValueError("stops.txt not found in GTFS archive")
 
+                # Parse stops
                 with zip_file.open("stops.txt") as stops_file:
-                    # Read as text
                     stops_text = stops_file.read().decode("utf-8")
                     reader = csv.DictReader(StringIO(stops_text))
 
@@ -132,7 +200,46 @@ class GTFSDataHandler:
                                 "stop_name": row.get("stop_name", ""),
                                 "stop_lat": row.get("stop_lat", ""),
                                 "stop_lon": row.get("stop_lon", ""),
+                                "routes": [],
                             }
+                
+                # Parse routes to get route_short_name
+                routes_map: dict[str, str] = {}  # route_id -> route_short_name
+                if "routes.txt" in zip_file.namelist():
+                    with zip_file.open("routes.txt") as routes_file:
+                        routes_text = routes_file.read().decode("utf-8")
+                        reader = csv.DictReader(StringIO(routes_text))
+                        for row in reader:
+                            route_id = row.get("route_id", "")
+                            route_short = row.get("route_short_name", "")
+                            if route_id and route_short:
+                                routes_map[route_id] = route_short
+                
+                # Parse trips to map trip_id -> route_id
+                if "trips.txt" in zip_file.namelist():
+                    with zip_file.open("trips.txt") as trips_file:
+                        trips_text = trips_file.read().decode("utf-8")
+                        reader = csv.DictReader(StringIO(trips_text))
+                        for row in reader:
+                            trip_id = row.get("trip_id", "")
+                            route_id = row.get("route_id", "")
+                            if trip_id and route_id and route_id in routes_map:
+                                trip_routes[trip_id] = routes_map[route_id]
+                
+                # Parse stop_times to link stops with routes
+                if "stop_times.txt" in zip_file.namelist():
+                    with zip_file.open("stop_times.txt") as stop_times_file:
+                        stop_times_text = stop_times_file.read().decode("utf-8")
+                        reader = csv.DictReader(StringIO(stop_times_text))
+                        
+                        for row in reader:
+                            trip_id = row.get("trip_id", "")
+                            stop_id = row.get("stop_id", "")
+                            
+                            if trip_id in trip_routes and stop_id in stops:
+                                route = trip_routes[trip_id]
+                                if route not in stops[stop_id]["routes"]:
+                                    stops[stop_id]["routes"].append(route)
 
             _LOGGER.info("Parsed %d stops from GTFS data", len(stops))
             return stops
