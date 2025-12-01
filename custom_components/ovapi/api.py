@@ -20,7 +20,7 @@ class OVAPIClient:
 
     async def get_stop_info(self, stop_code: str) -> dict[str, Any]:
         """Get information for a specific stop."""
-        url = f"{API_BASE_URL}/stopareacode/{stop_code}"
+        url = f"{API_BASE_URL}/tpc/{stop_code}"
         
         try:
             async with asyncio.timeout(API_TIMEOUT):
@@ -46,55 +46,53 @@ class OVAPIClient:
     ) -> list[dict[str, Any]]:
         """Filter passes by line number and destination."""
         passes = []
-        total_passes_found = 0
         
-        # OVAPI returns data in format: {stop_code: {TransportType: {DataOwnerCode: {LinePlanningNumber: {...}}}}}
+        # OVAPI /tpc/ endpoint returns: {stop_code: {"Stop": {...}, "Passes": {...}}}
         for stop_code, stop_info in stop_data.items():
-            if stop_code == "stopareacode":
+            if not isinstance(stop_info, dict):
                 continue
             
             _LOGGER.debug("Processing stop_code: %s", stop_code)
-                
-            for transport_type, transport_data in stop_info.items():
-                _LOGGER.debug("  Transport type: %s", transport_type)
-                for owner_code, owner_data in transport_data.items():
-                    _LOGGER.debug("    Owner code: %s", owner_code)
-                    for line_key, line_data in owner_data.items():
-                        _LOGGER.debug("      Line key: %s", line_key)
-                        # Extract passes
-                        if "Passes" in line_data:
-                            _LOGGER.debug("        Found %d passes", len(line_data["Passes"]))
-                            for pass_data in line_data["Passes"].values():
-                                total_passes_found += 1
-                                pass_line = pass_data.get("LinePublicNumber")
-                                pass_dest = pass_data.get("DestinationName50")
-                                
-                                _LOGGER.debug("          Pass: line=%s, dest=%s", pass_line, pass_dest)
-                                
-                                # Filter by line number
-                                if line_number and pass_line != line_number:
-                                    _LOGGER.debug("            Skipped: line filter (want %s, got %s)", line_number, pass_line)
-                                    continue
-                                
-                                # Filter by destination
-                                if destination and destination.lower() not in pass_dest.lower():
-                                    _LOGGER.debug("            Skipped: dest filter (want %s, got %s)", destination, pass_dest)
-                                    continue
-                                
-                                passes.append({
-                                    "line_number": pass_data.get("LinePublicNumber"),
-                                    "destination": pass_data.get("DestinationName50"),
-                                    "expected_arrival": pass_data.get("ExpectedArrivalTime"),
-                                    "target_arrival": pass_data.get("TargetArrivalTime"),
-                                    "delay": self._calculate_delay(
-                                        pass_data.get("ExpectedArrivalTime"),
-                                        pass_data.get("TargetArrivalTime")
-                                    ),
-                                    "transport_type": pass_data.get("TransportType"),
-                                })
-                                _LOGGER.debug("            MATCHED!")
+            
+            # Check if we have the new format with "Passes" directly
+            if "Passes" in stop_info:
+                _LOGGER.debug("Found Passes key with %d passes", len(stop_info["Passes"]))
+                for pass_key, pass_data in stop_info["Passes"].items():
+                    pass_line = pass_data.get("LinePublicNumber")
+                    pass_dest = pass_data.get("DestinationName50")
+                    
+                    _LOGGER.debug("  Pass: line=%s, dest=%s, status=%s", 
+                                 pass_line, pass_dest, pass_data.get("TripStopStatus"))
+                    
+                    # Skip passed buses
+                    if pass_data.get("TripStopStatus") == "PASSED":
+                        _LOGGER.debug("    Skipped: already passed")
+                        continue
+                    
+                    # Filter by line number
+                    if line_number and pass_line != line_number:
+                        _LOGGER.debug("    Skipped: line filter (want %s, got %s)", line_number, pass_line)
+                        continue
+                    
+                    # Filter by destination
+                    if destination and destination.lower() not in pass_dest.lower():
+                        _LOGGER.debug("    Skipped: dest filter (want %s, got %s)", destination, pass_dest)
+                        continue
+                    
+                    passes.append({
+                        "line_number": pass_line,
+                        "destination": pass_dest,
+                        "expected_arrival": pass_data.get("ExpectedArrivalTime"),
+                        "target_arrival": pass_data.get("TargetArrivalTime"),
+                        "delay": self._calculate_delay(
+                            pass_data.get("ExpectedArrivalTime"),
+                            pass_data.get("TargetArrivalTime")
+                        ),
+                        "transport_type": pass_data.get("TransportType"),
+                    })
+                    _LOGGER.debug("    MATCHED!")
         
-        _LOGGER.debug("Total passes found: %d, After filtering: %d", total_passes_found, len(passes))
+        _LOGGER.debug("Total passes after filtering: %d", len(passes))
         
         # Sort by expected arrival time
         passes.sort(key=lambda x: x.get("expected_arrival", ""))
