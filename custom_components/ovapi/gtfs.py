@@ -263,7 +263,13 @@ class GTFSDataHandler:
                     stops_text = stops_file.read().decode("utf-8")
                     reader = csv.DictReader(StringIO(stops_text))
 
-                    for row in reader:
+                    # Debug: Log the first row to see available columns
+                    rows = list(reader)
+                    if rows:
+                        _LOGGER.debug("GTFS stops.txt columns: %s", list(rows[0].keys()))
+                        _LOGGER.debug("First stop example: %s", rows[0])
+                    
+                    for row in rows:
                         # Use stop_code (timing point code) as the key, which is what v0 API uses
                         stop_code = row.get("stop_code", "")
                         if stop_code:
@@ -273,6 +279,8 @@ class GTFSDataHandler:
                                 "stop_lon": row.get("stop_lon", ""),
                                 "routes": [],
                             }
+                    
+                    _LOGGER.info("Parsed %d stops from GTFS (using stop_code field)", len(stops))
                 
                 # Parse routes to get route_short_name
                 routes_map: dict[str, str] = {}  # route_id -> route_short_name
