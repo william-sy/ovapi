@@ -289,7 +289,8 @@ class GTFSDataHandler:
                                 "routes": [],
                             }
                     
-                    _LOGGER.info("Parsed %d stops from GTFS", len(stops))
+                    _LOGGER.warning("Parsed %d stops from GTFS, first few: %s", 
+                                   len(stops), list(stops.items())[:3])
                 
                 # Parse routes to get route_short_name
                 routes_map: dict[str, str] = {}  # route_id -> route_short_name
