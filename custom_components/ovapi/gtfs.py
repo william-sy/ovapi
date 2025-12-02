@@ -273,8 +273,8 @@ class GTFSDataHandler:
                         if stop_id:
                             # Debug: Log first row to see what data we have
                             if row_count == 0:
-                                _LOGGER.info("GTFS stops.txt columns: %s", list(row.keys()))
-                                _LOGGER.info("First stop data: stop_id=%s, stop_code=%s, stop_name=%s", 
+                                _LOGGER.warning("GTFS stops.txt columns: %s", list(row.keys()))
+                                _LOGGER.warning("First stop data: stop_id=%s, stop_code='%s', stop_name=%s", 
                                            stop_id, row.get("stop_code", ""), row.get("stop_name", ""))
                             row_count += 1
                             
