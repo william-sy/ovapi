@@ -5,12 +5,13 @@ A custom Home Assistant integration that provides real-time bus information from
 ## Features
 
 - 🔍 **Stop Search**: Search for bus stops by name or location using GTFS data
+- 🔄 **Bidirectional Monitoring**: Monitor buses from both directions at a stop (combined next bus view)
 - 🚌 **Current Bus**: Shows the next arriving bus with line number and destination
 - 🚌 **Next Bus**: Displays information about the bus after the current one
 - ⏱️ **Delay Tracking**: Monitors delays for both current and next buses
 - 🚶 **Walking Planner**: Calculates when you need to leave based on your walking time
 - ⏰ **Departure Times**: Shows minutes until bus departures
-- 🔄 **Configurable Updates**: Set update interval between 30-300 seconds (default: 30s)
+- 🔄 **Configurable Updates**: Set update interval between 60-300 seconds (default: 60s)
 - 🎛️ **UI Configuration**: Easy setup through Home Assistant UI
 
 ## Installation
@@ -80,11 +81,14 @@ The integration provides an easy-to-use configuration interface:
 #### Option 1: Search for a Stop
 1. Enter a search query (e.g., "Amsterdam Centraal", "Stationsplein", etc.)
 2. Select your stop from the search results
-3. Configure the monitoring options:
+3. **Choose Direction** (if multiple directions available):
+   - **Both directions (combined)**: Monitor buses from both directions - shows the next bus from either direction
+   - **Specific direction**: Choose one direction only (e.g., "Direction: City Center")
+4. Configure the monitoring options:
    - **Line Number** (optional): Filter for a specific bus line (e.g., "22")
-   - **Destination Filter** (optional): Filter by destination name (e.g., "Centraal Station")
+   - **Destination Filter** (optional): Filter by destination name (automatically set to "All destinations" when monitoring both directions)
    - **Walking Time**: How many minutes it takes you to walk to the stop (default: 5)
-   - **Update Interval**: How often to check for updates in seconds (default: 30, range: 30-300)
+   - **Update Interval**: How often to check for updates in seconds (default: 60, range: 60-300)
 
 #### Option 2: Manual Entry
 1. Enter your stop code (e.g., "31000495")
@@ -200,11 +204,26 @@ entities:
 - Look at the Home Assistant logs for error messages
 - Ensure your Home Assistant can reach ovapi.nl (check firewall/network settings)
 
+### Stop not found in search
+
+- **Not all stops with real-time data are in the GTFS search database**
+- Example: Rotterdam Huslystraat (stop code 31002742) has real-time data but isn't in GTFS
+- **Solution**: Use **manual entry** with the stop code instead of search
+- You can find stop codes on physical signage at stops or transit apps
+
 ### Sensors show "Unknown"
 
 - The bus line might not be running at the current time
 - Check if your filters (line number, destination) are too restrictive
 - Verify that buses are actually scheduled at this time
+- If monitoring both directions, ensure both stop codes are valid
+
+### Only one direction showing
+
+- If you selected "Both directions" but only see one, check that:
+  - Both stop codes exist in the GTFS data (some stops may only have one direction)
+  - The GTFS cache is up to date (delete cache file in `.storage/ovapi_gtfs_cache.json` if needed)
+  - Both directions have active bus services at the current time
 
 ### Connection errors
 
