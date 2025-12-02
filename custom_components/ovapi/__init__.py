@@ -80,6 +80,9 @@ class OVAPIDataUpdateCoordinator(DataUpdateCoordinator):
         # Convert "All destinations" to None for filtering
         self.line_number = line_number
         self.destination = None if destination == "All destinations" else destination
+        
+        _LOGGER.warning("Coordinator init: stop_codes=%s, line=%s, destination_raw='%s', destination_filtered=%s", 
+                       stop_codes, line_number, destination, self.destination)
 
         super().__init__(
             hass,
