@@ -59,14 +59,14 @@ async def test_form_manual_entry(
         {
             CONF_DESTINATION: "All destinations",
             CONF_WALKING_TIME: 5,
-            CONF_SCAN_INTERVAL: 30,
+            CONF_SCAN_INTERVAL: 60,
         },
     )
     assert result["type"] == FlowResultType.CREATE_ENTRY
     assert result["title"] == "Amsterdam, Centraal Station"
     assert result["data"][CONF_STOP_CODE] == "31000495"
     assert result["data"][CONF_WALKING_TIME] == 5
-    assert result["data"][CONF_SCAN_INTERVAL] == 30
+    assert result["data"][CONF_SCAN_INTERVAL] == 60
 
 
 async def test_form_search(
@@ -176,7 +176,7 @@ async def test_reconfigure(
         data={
             CONF_STOP_CODE: "31000495",
             CONF_WALKING_TIME: 5,
-            CONF_SCAN_INTERVAL: 30,
+            CONF_SCAN_INTERVAL: 60,
         },
     )
     entry.add_to_hass(hass)

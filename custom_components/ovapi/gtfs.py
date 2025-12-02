@@ -80,10 +80,17 @@ class GTFSStopCache:
         self._last_update = datetime.now()
         await self._save_to_disk()
 
-    def search(self, query: str, limit: int = 10) -> list[dict[str, Any]]:
-        """Search stops by name or code."""
+    def search(self, query: str, limit: int = 10, group_by_name: bool = True) -> list[dict[str, Any]]:
+        """Search stops by name or code.
+        
+        Args:
+            query: Search query (stop name or code)
+            limit: Maximum number of results
+            group_by_name: If True, group stops with the same name together
+        """
         query_lower = query.lower()
         results = []
+        grouped_stops = {}  # Map stop_name -> list of stops
 
         for stop_code, stop_data in self._stops.items():
             stop_name = stop_data.get("stop_name", "").lower()
@@ -100,7 +107,37 @@ class GTFSStopCache:
                 # Add routes/lines info if available
                 routes = stop_data.get("routes", [])
                 if routes:
-                    result["routes"] = ", ".join(sorted(set(routes))[:5])  # Show up to 5 routes
+                    result["routes"] = routes
+                
+                if group_by_name:
+                    # Group by stop name
+                    original_name = stop_data.get("stop_name", "")
+                    if original_name not in grouped_stops:
+                        grouped_stops[original_name] = []
+                    grouped_stops[original_name].append(result)
+                else:
+                    results.append(result)
+                    if len(results) >= limit:
+                        break
+
+        # Convert grouped stops to result list
+        if group_by_name:
+            for stop_name, stops in grouped_stops.items():
+                # Combine all routes from all stops
+                all_routes = []
+                for stop in stops:
+                    all_routes.extend(stop.get("routes", []))
+                
+                result = {
+                    "stop_name": stop_name,
+                    "stop_codes": [s["stop_code"] for s in stops],
+                    "stop_lat": stops[0].get("stop_lat", ""),
+                    "stop_lon": stops[0].get("stop_lon", ""),
+                    "direction_count": len(stops),
+                }
+                
+                if all_routes:
+                    result["routes"] = ", ".join(sorted(set(all_routes))[:5])  # Show up to 5 unique routes
                 
                 results.append(result)
                 

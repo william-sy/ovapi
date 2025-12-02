@@ -72,12 +72,14 @@ def mock_gtfs_handler():
         "custom_components.ovapi.gtfs.GTFSDataHandler", autospec=True
     ) as mock_handler:
         handler = mock_handler.return_value
+        # Return grouped format (new behavior)
         handler.search_stops = AsyncMock(return_value=[
             {
-                "stop_code": "31000495",
                 "stop_name": "Amsterdam, Centraal Station",
+                "stop_codes": ["31000495"],
                 "stop_lat": "52.378624",
                 "stop_lon": "4.900272",
+                "direction_count": 1,
             }
         ])
         handler.get_stop_name = AsyncMock(return_value="Amsterdam, Centraal Station")
