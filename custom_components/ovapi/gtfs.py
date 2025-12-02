@@ -266,18 +266,30 @@ class GTFSDataHandler:
                 with zip_file.open("stops.txt") as stops_file:
                     stops_text = stops_file.read().decode("utf-8")
                     reader = csv.DictReader(StringIO(stops_text))
-
+                    
+                    row_count = 0
                     for row in reader:
                         stop_id = row.get("stop_id", "")
                         if stop_id:
+                            # Debug: Log first row to see what data we have
+                            if row_count == 0:
+                                _LOGGER.info("GTFS stops.txt columns: %s", list(row.keys()))
+                                _LOGGER.info("First stop data: stop_id=%s, stop_code=%s, stop_name=%s", 
+                                           stop_id, row.get("stop_code", ""), row.get("stop_name", ""))
+                            row_count += 1
+                            
                             # Store both stop_id (for search) and stop_code (for API calls)
+                            # Fallback to stop_id if stop_code is empty
+                            api_code = row.get("stop_code", "").strip() or stop_id
                             stops[stop_id] = {
                                 "stop_name": row.get("stop_name", ""),
                                 "stop_lat": row.get("stop_lat", ""),
                                 "stop_lon": row.get("stop_lon", ""),
-                                "stop_code": row.get("stop_code", ""),  # Timing point code for v0 API
+                                "stop_code": api_code,  # Timing point code for v0 API
                                 "routes": [],
                             }
+                    
+                    _LOGGER.info("Parsed %d stops from GTFS", len(stops))
                 
                 # Parse routes to get route_short_name
                 routes_map: dict[str, str] = {}  # route_id -> route_short_name
