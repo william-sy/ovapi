@@ -68,7 +68,12 @@ class OVAPIClient:
                     
                     # Filter by destination
                     if destination and destination.lower() not in pass_dest.lower():
+                        _LOGGER.debug("Filtered out: line=%s to %s (looking for '%s')", 
+                                     pass_line, pass_dest, destination)
                         continue
+                    
+                    _LOGGER.debug("Including: line=%s to %s at %s", 
+                                 pass_line, pass_dest, pass_data.get("ExpectedArrivalTime"))
                     
                     passes.append({
                         "line_number": pass_line,
