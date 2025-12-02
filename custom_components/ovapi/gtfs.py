@@ -17,6 +17,7 @@ GTFS_BASE_URL = "https://gtfs.ovapi.nl/govi"
 GTFS_FALLBACK_URL = "https://github.com/william-sy/ovapi/raw/refs/heads/main/rate_limit/gtfs-kv7.zip"
 GTFS_CACHE_DURATION = timedelta(days=1)  # Cache GTFS data for 1 day
 GTFS_CACHE_FILE = "ovapi_gtfs_cache.json"
+GTFS_CACHE_VERSION = 2  # Increment when cache format changes
 
 
 class GTFSStopCache:
@@ -37,6 +38,14 @@ class GTFSStopCache:
         try:
             content = await asyncio.to_thread(self._cache_file.read_text, encoding="utf-8")
             data = json.loads(content)
+            
+            # Check cache version - invalidate if mismatch
+            cache_version = data.get("version", 1)
+            if cache_version != GTFS_CACHE_VERSION:
+                _LOGGER.info("GTFS cache version mismatch (cached: %s, current: %s), invalidating cache", 
+                            cache_version, GTFS_CACHE_VERSION)
+                return
+            
             self._stops = data.get("stops", {})
             last_update_str = data.get("last_update")
             if last_update_str:
@@ -53,6 +62,7 @@ class GTFSStopCache:
             await asyncio.to_thread(self._cache_dir.mkdir, parents=True, exist_ok=True)
             
             data = {
+                "version": GTFS_CACHE_VERSION,
                 "stops": self._stops,
                 "last_update": self._last_update.isoformat() if self._last_update else None,
             }
