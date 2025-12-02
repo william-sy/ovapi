@@ -103,10 +103,19 @@ class OVAPIDataUpdateCoordinator(DataUpdateCoordinator):
                     destination=self.destination,
                 )
                 
+                _LOGGER.debug("Stop %s returned %d passes (line=%s, dest=%s)", 
+                             stop_code, len(passes), self.line_number, self.destination)
+                
                 all_passes.extend(passes)
             
             # Sort by expected arrival time
             all_passes.sort(key=lambda x: x.get("ExpectedArrivalTime", ""))
+            
+            _LOGGER.debug("Combined %d total passes, next: %s to %s at %s", 
+                         len(all_passes),
+                         all_passes[0].get("LinePublicNumber") if all_passes else "N/A",
+                         all_passes[0].get("DestinationName50") if all_passes else "N/A",
+                         all_passes[0].get("ExpectedArrivalTime") if all_passes else "N/A")
             
             return all_passes
         except Exception as err:

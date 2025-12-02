@@ -17,7 +17,7 @@ GTFS_BASE_URL = "https://gtfs.ovapi.nl/govi"
 GTFS_FALLBACK_URL = "https://github.com/william-sy/ovapi/raw/refs/heads/main/rate_limit/gtfs-kv7.zip"
 GTFS_CACHE_DURATION = timedelta(days=1)  # Cache GTFS data for 1 day
 GTFS_CACHE_FILE = "ovapi_gtfs_cache.json"
-GTFS_CACHE_VERSION = 3  # Increment when cache format changes
+GTFS_CACHE_VERSION = 4  # Increment when cache format changes
 
 
 class GTFSStopCache:
@@ -211,12 +211,13 @@ class GTFSDataHandler:
 
     async def download_and_parse_stops(self) -> dict[str, dict[str, str]]:
         """Download GTFS file and parse stops.txt."""
+        _LOGGER.warning("Starting GTFS download and parse (cache version %d)", GTFS_CACHE_VERSION)
         filename = await self.get_gtfs_filename()
         if not filename:
             raise ValueError("Could not determine GTFS filename")
 
         url = f"{GTFS_BASE_URL}/{filename}"
-        _LOGGER.info("Downloading GTFS data from %s", url)
+        _LOGGER.warning("Downloading GTFS data from %s", url)
 
         try:
             async with asyncio.timeout(30):

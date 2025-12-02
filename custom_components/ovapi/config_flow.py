@@ -220,6 +220,9 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if direction_choice == "both":
                 # Use all stop codes
                 self.context["stop_codes"] = stop_codes
+                # Force "All destinations" when using both directions
+                # since opposite directions go to different places
+                self.context["force_all_destinations"] = True
             else:
                 # Extract the index from "Direction 1", "Direction 2", etc.
                 direction_num = int(direction_choice.split(" ")[1]) - 1
@@ -232,9 +235,9 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         selected_stop = self.context.get("selected_stop", {})
         stop_codes = selected_stop.get("stop_codes", [])
         
-        options = {"both": "Both directions"}
+        options = {"both": "Both directions (combined - shows next bus from any direction)"}
         for idx, stop_code in enumerate(stop_codes, 1):
-            options[f"Direction {idx}"] = f"Direction {idx} (Stop: {stop_code})"
+            options[f"Direction {idx}"] = f"Direction {idx} only (Stop: {stop_code})"
         
         return self.async_show_form(
             step_id="select_direction",
@@ -318,6 +321,7 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         stop_code = self.context.get("stop_code")
         stop_codes = self.context.get("stop_codes")
         line_number = self.context.get("line_number")
+        force_all_destinations = self.context.get("force_all_destinations", False)
         
         # Convert "All lines" to None
         if line_number == "All lines":
@@ -335,6 +339,8 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if stop_codes:
                 full_config[CONF_STOP_CODES] = stop_codes
                 full_config[CONF_STOP_CODE] = stop_codes[0]  # For backward compatibility
+                # Force "All destinations" for bidirectional to show all buses
+                user_input[CONF_DESTINATION] = "All destinations"
             else:
                 full_config[CONF_STOP_CODE] = stop_code
                 
@@ -364,23 +370,26 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     data=full_config,
                 )
 
-        # Fetch available destinations for this stop and line (use first stop if multiple)
-        destinations = await self._get_destinations_for_stop(
-            stop_code or (stop_codes[0] if stop_codes else None), 
-            line_number
-        )
-        
         # Build schema
         schema_dict: dict[Any, Any] = {}
         
-        if destinations:
-            # Add "All destinations" option
-            dest_options = ["All destinations"] + destinations
-            schema_dict[vol.Optional(CONF_DESTINATION, default="All destinations")] = selector.SelectSelector(
-                selector.SelectSelectorConfig(options=dest_options, mode=selector.SelectSelectorMode.DROPDOWN)
+        # Only show destination selection if NOT using both directions
+        # (both directions always shows all destinations since they go opposite ways)
+        if not force_all_destinations:
+            # Fetch available destinations for this stop and line (use first stop if multiple)
+            destinations = await self._get_destinations_for_stop(
+                stop_code or (stop_codes[0] if stop_codes else None), 
+                line_number
             )
-        else:
-            schema_dict[vol.Optional(CONF_DESTINATION)] = str
+            
+            if destinations:
+                # Add "All destinations" option
+                dest_options = ["All destinations"] + destinations
+                schema_dict[vol.Optional(CONF_DESTINATION, default="All destinations")] = selector.SelectSelector(
+                    selector.SelectSelectorConfig(options=dest_options, mode=selector.SelectSelectorMode.DROPDOWN)
+                )
+            else:
+                schema_dict[vol.Optional(CONF_DESTINATION)] = str
         
         schema_dict.update({
             vol.Optional(CONF_WALKING_TIME, default=0): selector.NumberSelector(
