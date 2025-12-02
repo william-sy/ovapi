@@ -17,7 +17,7 @@ GTFS_BASE_URL = "https://gtfs.ovapi.nl/govi"
 GTFS_FALLBACK_URL = "https://github.com/william-sy/ovapi/raw/refs/heads/main/rate_limit/gtfs-kv7.zip"
 GTFS_CACHE_DURATION = timedelta(days=1)  # Cache GTFS data for 1 day
 GTFS_CACHE_FILE = "ovapi_gtfs_cache.json"
-GTFS_CACHE_VERSION = 2  # Increment when cache format changes
+GTFS_CACHE_VERSION = 3  # Increment when cache format changes
 
 
 class GTFSStopCache:
@@ -102,13 +102,17 @@ class GTFSStopCache:
         results = []
         grouped_stops = {}  # Map stop_name -> list of stops
 
-        for stop_code, stop_data in self._stops.items():
+        for stop_id, stop_data in self._stops.items():
             stop_name = stop_data.get("stop_name", "").lower()
             
-            # Match on stop code or stop name
-            if query_lower in stop_code.lower() or query_lower in stop_name:
+            # Match on stop_id or stop name
+            if query_lower in stop_id.lower() or query_lower in stop_name:
+                # Get the actual stop_code (timing point code) for API calls
+                api_stop_code = stop_data.get("stop_code", stop_id)
+                
                 result = {
-                    "stop_code": stop_code,
+                    "stop_code": api_stop_code,  # Use timing point code for API
+                    "stop_id": stop_id,  # Keep original ID for reference
                     "stop_name": stop_data.get("stop_name", ""),
                     "stop_lat": stop_data.get("stop_lat", ""),
                     "stop_lon": stop_data.get("stop_lon", ""),
@@ -263,24 +267,17 @@ class GTFSDataHandler:
                     stops_text = stops_file.read().decode("utf-8")
                     reader = csv.DictReader(StringIO(stops_text))
 
-                    # Debug: Log the first row to see available columns
-                    rows = list(reader)
-                    if rows:
-                        _LOGGER.debug("GTFS stops.txt columns: %s", list(rows[0].keys()))
-                        _LOGGER.debug("First stop example: %s", rows[0])
-                    
-                    for row in rows:
-                        # Use stop_code (timing point code) as the key, which is what v0 API uses
-                        stop_code = row.get("stop_code", "")
-                        if stop_code:
-                            stops[stop_code] = {
+                    for row in reader:
+                        stop_id = row.get("stop_id", "")
+                        if stop_id:
+                            # Store both stop_id (for search) and stop_code (for API calls)
+                            stops[stop_id] = {
                                 "stop_name": row.get("stop_name", ""),
                                 "stop_lat": row.get("stop_lat", ""),
                                 "stop_lon": row.get("stop_lon", ""),
+                                "stop_code": row.get("stop_code", ""),  # Timing point code for v0 API
                                 "routes": [],
                             }
-                    
-                    _LOGGER.info("Parsed %d stops from GTFS (using stop_code field)", len(stops))
                 
                 # Parse routes to get route_short_name
                 routes_map: dict[str, str] = {}  # route_id -> route_short_name
