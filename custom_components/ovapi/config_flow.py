@@ -42,21 +42,43 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
     cache_dir = Path(hass.config.path(DOMAIN))
     gtfs_handler = GTFSDataHandler(session, cache_dir)
 
-    # Try to fetch data for the stop code
-    stop_data = await client.get_stop_info(data[CONF_STOP_CODE])
+    # Get stop codes to validate (could be one or multiple)
+    stop_codes_to_check = data.get(CONF_STOP_CODES, [data[CONF_STOP_CODE]])
     
-    if not stop_data:
-        raise ValueError("Could not fetch data for stop code")
+    # Try to fetch data for at least one stop code
+    valid_stop_found = False
+    last_error = None
     
-    # Check if we got valid data
-    has_data = False
-    for key, value in stop_data.items():
-        if key != "stopareacode" and isinstance(value, dict):
-            has_data = True
-            break
+    for stop_code in stop_codes_to_check:
+        try:
+            stop_data = await client.get_stop_info(stop_code)
+            
+            if stop_data:
+                # Check if we got valid data
+                for key, value in stop_data.items():
+                    if key != "stopareacode" and isinstance(value, dict):
+                        valid_stop_found = True
+                        break
+            
+            if valid_stop_found:
+                break
+        except Exception as err:
+            last_error = err
+            _LOGGER.debug("Stop code %s validation failed: %s", stop_code, err)
+            continue
     
-    if not has_data:
-        raise ValueError("No transit data found for this stop code")
+    if not valid_stop_found:
+        if len(stop_codes_to_check) > 1:
+            _LOGGER.warning(
+                "None of the stop codes (%s) have real-time data available", 
+                ", ".join(stop_codes_to_check)
+            )
+            raise ValueError(
+                f"None of the selected stops have real-time departure data. "
+                f"Stop codes: {', '.join(stop_codes_to_check)}"
+            )
+        else:
+            raise ValueError(f"Stop code {stop_codes_to_check[0]} has no real-time data available")
 
     # Try to get the stop name from GTFS data
     stop_name = None
@@ -322,7 +344,8 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             
             try:
                 info = await validate_input(self.hass, full_config)
-            except ValueError:
+            except ValueError as err:
+                _LOGGER.error("Validation failed: %s", err)
                 errors["base"] = "cannot_connect"
             except Exception:  # pylint: disable=broad-except
                 _LOGGER.exception("Unexpected exception")

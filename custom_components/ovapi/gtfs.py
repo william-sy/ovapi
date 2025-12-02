@@ -123,17 +123,24 @@ class GTFSStopCache:
         # Convert grouped stops to result list
         if group_by_name:
             for stop_name, stops in grouped_stops.items():
+                # Prefer 8-digit stop codes (main stops with real-time data)
+                # Sort: 8-digit codes first, then by stop_code
+                stops_sorted = sorted(
+                    stops, 
+                    key=lambda s: (len(s["stop_code"]) != 8, s["stop_code"])
+                )
+                
                 # Combine all routes from all stops
                 all_routes = []
-                for stop in stops:
+                for stop in stops_sorted:
                     all_routes.extend(stop.get("routes", []))
                 
                 result = {
                     "stop_name": stop_name,
-                    "stop_codes": [s["stop_code"] for s in stops],
-                    "stop_lat": stops[0].get("stop_lat", ""),
-                    "stop_lon": stops[0].get("stop_lon", ""),
-                    "direction_count": len(stops),
+                    "stop_codes": [s["stop_code"] for s in stops_sorted],
+                    "stop_lat": stops_sorted[0].get("stop_lat", ""),
+                    "stop_lon": stops_sorted[0].get("stop_lon", ""),
+                    "direction_count": len(stops_sorted),
                 }
                 
                 if all_routes:
@@ -247,9 +254,10 @@ class GTFSDataHandler:
                     reader = csv.DictReader(StringIO(stops_text))
 
                     for row in reader:
-                        stop_id = row.get("stop_id", "")
-                        if stop_id:
-                            stops[stop_id] = {
+                        # Use stop_code (timing point code) as the key, which is what v0 API uses
+                        stop_code = row.get("stop_code", "")
+                        if stop_code:
+                            stops[stop_code] = {
                                 "stop_name": row.get("stop_name", ""),
                                 "stop_lat": row.get("stop_lat", ""),
                                 "stop_lon": row.get("stop_lon", ""),
