@@ -5,6 +5,8 @@ This directory contains GTFS (General Transit Feed Specification) data files bun
 ## Files
 
 - **gtfs-kv7.zip** (6.4 MB): Bundled GTFS dataset containing stops with confirmed real-time data
+- **custom_stops.json**: Community-contributed stops that work but aren't in official GTFS ([How to contribute](CONTRIBUTING.md))
+- **CONTRIBUTING.md**: Guide for users to contribute missing stops
 - **stops.txt** (6.3 MB): Full GTFS stops (kept for reference, not used by integration)
 - **routes.txt** (206 KB): Route information (kept for reference)
 - **stops.txt.sha256**: Legacy hash file (not used)
@@ -17,16 +19,16 @@ The integration uses **gtfs-kv7.zip** from `https://gtfs.ovapi.nl/govi/` because
 2. **Reasonable size**: 6.4 MB vs 280 MB for the full dataset
 3. **Prevents frustration**: Users won't find stops that don't have real-time data
 
-## Important Note: Manual Entry
+## Community Custom Stops
 
-**Some stops work with manual entry but aren't in the GTFS search!**
+**Some stops work with the API but aren't in the official GTFS dataset!**
 
-Example: **Rotterdam, Huslystraat** (stop code `31002742`)
-- ❌ Not found in GTFS search
-- ✅ Works perfectly with manual entry
-- ✅ Has real-time data via v0.ovapi.nl
+These stops have been added to `custom_stops.json` by community contributors:
+- ✅ **Rotterdam, Huslystraat** (line 36): Stop codes 31002742 & 31002797
 
-**Solution**: If a stop isn't found in search, use manual entry with the stop code.
+Can't find your stop in search? You can:
+1. Use **manual entry** with the stop code
+2. **Contribute it** to help others - see [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## Updating gtfs-kv7.zip
 

@@ -15,12 +15,13 @@ _LOGGER = logging.getLogger(__name__)
 
 # Bundled GTFS file (shipped with integration)
 # Uses gtfs-kv7 which contains only stops with confirmed real-time data (8-digit codes)
-# Note: Some stops work via manual entry but aren't in GTFS (e.g., Rotterdam Huslystraat: 31002742)
+# Community-contributed stops supplement GTFS data for stops that work but aren't in official dataset
 BUNDLED_GTFS_FILE = Path(__file__).parent.parent.parent / "gtfs" / "gtfs-kv7.zip"
+CUSTOM_STOPS_FILE = Path(__file__).parent.parent.parent / "gtfs" / "custom_stops.json"
 
 GTFS_CACHE_DURATION = timedelta(days=1)  # Cache GTFS data for 1 day
 GTFS_CACHE_FILE = "ovapi_gtfs_cache.json"
-GTFS_CACHE_VERSION = 7  # Increment when cache format changes
+GTFS_CACHE_VERSION = 8  # Increment when cache format changes
 
 
 class GTFSStopCache:
@@ -234,6 +235,28 @@ class GTFSDataHandler:
                     }
             
             _LOGGER.info("Parsed %d stops from GTFS stops.txt", len(stops))
+            
+            # Load and merge custom stops (community-contributed)
+            if CUSTOM_STOPS_FILE.exists():
+                try:
+                    custom_data = await asyncio.to_thread(CUSTOM_STOPS_FILE.read_text, encoding="utf-8")
+                    custom_stops = json.loads(custom_data)
+                    
+                    for custom_stop in custom_stops:
+                        stop_id = custom_stop.get("stop_id", "")
+                        if stop_id and stop_id not in stops:  # Don't override GTFS data
+                            stops[stop_id] = {
+                                "stop_name": custom_stop.get("stop_name", ""),
+                                "stop_lat": custom_stop.get("stop_lat", ""),
+                                "stop_lon": custom_stop.get("stop_lon", ""),
+                                "stop_code": custom_stop.get("stop_code", stop_id),
+                                "routes": [custom_stop.get("line_num")] if custom_stop.get("line_num") else [],
+                            }
+                    
+                    _LOGGER.info("Added %d custom stops (total: %d)", len(custom_stops), len(stops))
+                except Exception as custom_err:
+                    _LOGGER.warning("Failed to load custom stops: %s", custom_err)
+            
             return stops
 
         except Exception as err:

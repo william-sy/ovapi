@@ -20,6 +20,11 @@ MAX_SCAN_INTERVAL = 300  # maximum seconds between updates
 API_BASE_URL = "http://v0.ovapi.nl"
 API_TIMEOUT = 10
 
+# GitHub
+GITHUB_REPO = "william-sy/ovapi"
+GITHUB_NEW_ISSUE_URL = "https://github.com/william-sy/ovapi/issues/new"
+GITHUB_CONTRIBUTING_URL = "https://github.com/william-sy/ovapi/blob/main/gtfs/CONTRIBUTING.md"
+
 # Sensor types
 SENSOR_CURRENT_BUS = "current_bus"
 SENSOR_NEXT_BUS = "next_bus"

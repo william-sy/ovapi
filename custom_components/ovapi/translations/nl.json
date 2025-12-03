@@ -47,7 +47,7 @@
     "error": {
       "cannot_connect": "Kan geen verbinding maken met OVAPI. Controleer de haltecode.",
       "unknown": "Onverwachte fout opgetreden",
-      "no_stops_found": "Geen haltes gevonden die overeenkomen met uw zoekopdracht. Probeer een andere zoekopdracht."
+      "no_stops_found": "Geen halte gevonden. Als uw halte werkt op v0.ovapi.nl maar niet doorzoekbaar is, kunt u deze bijdragen via GitHub (zie beschrijving hierboven) of handmatige invoer gebruiken met de haltecode."
     },
     "abort": {
       "already_configured": "Deze halte- en lijncombinatie is al geconfigureerd"
