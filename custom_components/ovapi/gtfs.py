@@ -13,10 +13,15 @@ import aiohttp
 
 _LOGGER = logging.getLogger(__name__)
 
-GTFS_BASE_URL = "https://gtfs.ovapi.nl/govi"
-GTFS_FALLBACK_URL = "https://github.com/william-sy/ovapi/raw/refs/heads/main/rate_limit/gtfs-kv7.zip"
+# Bundled GTFS file (shipped with integration)
+# Uses gtfs-kv7 which contains only stops with confirmed real-time data (8-digit codes)
+# Community-contributed stops supplement GTFS data for stops that work but aren't in official dataset
+BUNDLED_GTFS_FILE = Path(__file__).parent / "gtfs" / "gtfs-kv7.zip"
+CUSTOM_STOPS_FILE = Path(__file__).parent / "gtfs" / "custom_stops.json"
+
 GTFS_CACHE_DURATION = timedelta(days=1)  # Cache GTFS data for 1 day
 GTFS_CACHE_FILE = "ovapi_gtfs_cache.json"
+GTFS_CACHE_VERSION = 8  # Increment when cache format changes
 
 
 class GTFSStopCache:
@@ -37,6 +42,14 @@ class GTFSStopCache:
         try:
             content = await asyncio.to_thread(self._cache_file.read_text, encoding="utf-8")
             data = json.loads(content)
+            
+            # Check cache version - invalidate if mismatch
+            cache_version = data.get("version", 1)
+            if cache_version != GTFS_CACHE_VERSION:
+                _LOGGER.info("GTFS cache version mismatch (cached: %s, current: %s), invalidating cache", 
+                            cache_version, GTFS_CACHE_VERSION)
+                return
+            
             self._stops = data.get("stops", {})
             last_update_str = data.get("last_update")
             if last_update_str:
@@ -53,6 +66,7 @@ class GTFSStopCache:
             await asyncio.to_thread(self._cache_dir.mkdir, parents=True, exist_ok=True)
             
             data = {
+                "version": GTFS_CACHE_VERSION,
                 "stops": self._stops,
                 "last_update": self._last_update.isoformat() if self._last_update else None,
             }
@@ -80,18 +94,31 @@ class GTFSStopCache:
         self._last_update = datetime.now()
         await self._save_to_disk()
 
-    def search(self, query: str, limit: int = 10) -> list[dict[str, Any]]:
-        """Search stops by name or code."""
+    def search(self, query: str, limit: int = 10, group_by_name: bool = True) -> list[dict[str, Any]]:
+        """Search stops by name or code.
+        
+        Args:
+            query: Search query (stop name or code)
+            limit: Maximum number of results
+            group_by_name: If True, group stops with the same name together
+        """
         query_lower = query.lower()
         results = []
+        grouped_stops = {}  # Map stop_name -> list of stops
+        
+        _LOGGER.debug("Searching %d stops for query: '%s'", len(self._stops), query_lower)
 
-        for stop_code, stop_data in self._stops.items():
+        for stop_id, stop_data in self._stops.items():
             stop_name = stop_data.get("stop_name", "").lower()
             
-            # Match on stop code or stop name
-            if query_lower in stop_code.lower() or query_lower in stop_name:
+            # Match on stop_id or stop name
+            if query_lower in stop_id.lower() or query_lower in stop_name:
+                # Get the actual stop_code (timing point code) for API calls
+                api_stop_code = stop_data.get("stop_code", stop_id)
+                
                 result = {
-                    "stop_code": stop_code,
+                    "stop_code": api_stop_code,  # Use timing point code for API
+                    "stop_id": stop_id,  # Keep original ID for reference
                     "stop_name": stop_data.get("stop_name", ""),
                     "stop_lat": stop_data.get("stop_lat", ""),
                     "stop_lon": stop_data.get("stop_lon", ""),
@@ -100,7 +127,45 @@ class GTFSStopCache:
                 # Add routes/lines info if available
                 routes = stop_data.get("routes", [])
                 if routes:
-                    result["routes"] = ", ".join(sorted(set(routes))[:5])  # Show up to 5 routes
+                    result["routes"] = routes
+                
+                if group_by_name:
+                    # Group by stop name
+                    original_name = stop_data.get("stop_name", "")
+                    if original_name not in grouped_stops:
+                        grouped_stops[original_name] = []
+                    grouped_stops[original_name].append(result)
+                else:
+                    results.append(result)
+                    if len(results) >= limit:
+                        break
+
+        # Convert grouped stops to result list
+        if group_by_name:
+            _LOGGER.debug("Found %d matching stop groups for query '%s'", len(grouped_stops), query_lower)
+            for stop_name, stops in grouped_stops.items():
+                # Prefer 8-digit stop codes (main stops with real-time data)
+                # Sort: 8-digit codes first, then by stop_code
+                stops_sorted = sorted(
+                    stops, 
+                    key=lambda s: (len(s["stop_code"]) != 8, s["stop_code"])
+                )
+                
+                # Combine all routes from all stops
+                all_routes = []
+                for stop in stops_sorted:
+                    all_routes.extend(stop.get("routes", []))
+                
+                result = {
+                    "stop_name": stop_name,
+                    "stop_codes": [s["stop_code"] for s in stops_sorted],
+                    "stop_lat": stops_sorted[0].get("stop_lat", ""),
+                    "stop_lon": stops_sorted[0].get("stop_lon", ""),
+                    "direction_count": len(stops_sorted),
+                }
+                
+                if all_routes:
+                    result["routes"] = ", ".join(sorted(set(all_routes))[:5])  # Show up to 5 unique routes
                 
                 results.append(result)
                 
@@ -119,152 +184,88 @@ class GTFSDataHandler:
         self._cache = GTFSStopCache(cache_dir)
         self._cache_loaded = False
 
-    async def get_gtfs_filename(self) -> str | None:
-        """Get the current GTFS filename from the directory."""
-        try:
-            async with asyncio.timeout(10):
-                # Try to construct the filename based on today's date
-                today = datetime.now().strftime("%Y%m%d")
-                filename = f"gtfs-kv7-{today}.zip"
-                
-                # Check if this file exists
-                url = f"{GTFS_BASE_URL}/{filename}"
-                async with self._session.head(url) as response:
-                    if response.status == 200:
-                        return filename
-                
-                # If not, try yesterday's date
-                yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y%m%d")
-                filename = f"gtfs-kv7-{yesterday}.zip"
-                
-                url = f"{GTFS_BASE_URL}/{filename}"
-                async with self._session.head(url) as response:
-                    if response.status == 200:
-                        return filename
-                
-                # Don't try rate_limit on OVAPI server - we use GitHub fallback instead during download
-                
-                _LOGGER.warning("Could not determine GTFS filename")
-                return None
-                
-        except Exception as err:
-            _LOGGER.error("Error determining GTFS filename: %s", err)
-            return None
-
     async def download_and_parse_stops(self) -> dict[str, dict[str, str]]:
-        """Download GTFS file and parse stops.txt."""
-        filename = await self.get_gtfs_filename()
-        if not filename:
-            raise ValueError("Could not determine GTFS filename")
-
-        url = f"{GTFS_BASE_URL}/{filename}"
-        _LOGGER.info("Downloading GTFS data from %s", url)
+        """Load and parse stops.txt from bundled GTFS zip file."""
+        _LOGGER.info("Loading GTFS data (cache version %d)", GTFS_CACHE_VERSION)
+        
+        # Use bundled gtfs-kv7.zip file
+        gtfs_file = BUNDLED_GTFS_FILE
+        
+        if not gtfs_file.exists():
+            raise ValueError(f"Bundled GTFS file not found at {gtfs_file}")
+        
+        _LOGGER.info("Parsing stops from %s", gtfs_file)
 
         try:
-            async with asyncio.timeout(30):
-                async with self._session.get(url) as response:
-                    # Handle rate limiting by trying fallback or using cached data
-                    if response.status == 429:
-                        _LOGGER.warning("Rate limited by GTFS server (429), trying GitHub fallback")
-                        
-                        # Try GitHub fallback with older but stable data
-                        try:
-                            async with self._session.get(GTFS_FALLBACK_URL) as fallback_response:
-                                _LOGGER.debug("GitHub fallback response status: %s", fallback_response.status)
-                                if fallback_response.status == 200:
-                                    _LOGGER.info("Successfully using GitHub fallback GTFS file from %s", GTFS_FALLBACK_URL)
-                                    zip_data = await fallback_response.read()
-                                    # Continue with normal parsing below
-                                else:
-                                    _LOGGER.warning("GitHub fallback returned status %s", fallback_response.status)
-                                    raise aiohttp.ClientError(f"GitHub fallback failed with status {fallback_response.status}")
-                        except Exception as fallback_err:
-                            # GitHub fallback failed, try cache
-                            _LOGGER.warning("GitHub fallback failed (%s), using cached data if available", fallback_err)
-                            cached_stops = self._cache.get_stops()
-                            if cached_stops:
-                                _LOGGER.info("Using %d cached stops", len(cached_stops))
-                                return cached_stops
-                            raise aiohttp.ClientResponseError(
-                                request_info=response.request_info,
-                                history=response.history,
-                                status=response.status,
-                                message="Rate limited and no cache available",
-                                headers=response.headers,
-                            )
-                    else:
-                        response.raise_for_status()
-                        zip_data = await response.read()
-
+            # Read the zip file
+            zip_data = await asyncio.to_thread(gtfs_file.read_bytes)
+            
             # Parse the ZIP file
             stops: dict[str, dict[str, Any]] = {}
-            trip_routes: dict[str, str] = {}  # trip_id -> route_short_name
             
             with zipfile.ZipFile(BytesIO(zip_data)) as zip_file:
                 if "stops.txt" not in zip_file.namelist():
                     raise ValueError("stops.txt not found in GTFS archive")
-
+                
                 # Parse stops
                 with zip_file.open("stops.txt") as stops_file:
                     stops_text = stops_file.read().decode("utf-8")
                     reader = csv.DictReader(StringIO(stops_text))
-
-                    for row in reader:
-                        stop_id = row.get("stop_id", "")
-                        if stop_id:
+            
+            row_count = 0
+            for row in reader:
+                stop_id = row.get("stop_id", "")
+                if stop_id:
+                    # Debug: Log first row to see what data we have
+                    if row_count == 0:
+                        _LOGGER.info("GTFS stops.txt columns: %s", list(row.keys()))
+                        _LOGGER.debug("First stop: stop_id=%s, stop_code='%s', stop_name=%s", 
+                                      stop_id, row.get("stop_code", ""), row.get("stop_name", ""))
+                    row_count += 1
+                    
+                    # Store both stop_id (for search) and stop_code (for API calls)
+                    # Fallback to stop_id if stop_code is empty
+                    api_code = row.get("stop_code", "").strip() or stop_id
+                    stops[stop_id] = {
+                        "stop_name": row.get("stop_name", ""),
+                        "stop_lat": row.get("stop_lat", ""),
+                        "stop_lon": row.get("stop_lon", ""),
+                        "stop_code": api_code,  # Timing point code for v0 API
+                        "routes": [],  # Routes not used currently
+                    }
+            
+            _LOGGER.info("Parsed %d stops from GTFS stops.txt", len(stops))
+            
+            # Load and merge custom stops (community-contributed)
+            if CUSTOM_STOPS_FILE.exists():
+                try:
+                    custom_data = await asyncio.to_thread(CUSTOM_STOPS_FILE.read_text, encoding="utf-8")
+                    custom_stops = json.loads(custom_data)
+                    
+                    for custom_stop in custom_stops:
+                        stop_id = custom_stop.get("stop_id", "")
+                        if stop_id and stop_id not in stops:  # Don't override GTFS data
                             stops[stop_id] = {
-                                "stop_name": row.get("stop_name", ""),
-                                "stop_lat": row.get("stop_lat", ""),
-                                "stop_lon": row.get("stop_lon", ""),
-                                "routes": [],
+                                "stop_name": custom_stop.get("stop_name", ""),
+                                "stop_lat": custom_stop.get("stop_lat", ""),
+                                "stop_lon": custom_stop.get("stop_lon", ""),
+                                "stop_code": custom_stop.get("stop_code", stop_id),
+                                "routes": [custom_stop.get("line_num")] if custom_stop.get("line_num") else [],
                             }
-                
-                # Parse routes to get route_short_name
-                routes_map: dict[str, str] = {}  # route_id -> route_short_name
-                if "routes.txt" in zip_file.namelist():
-                    with zip_file.open("routes.txt") as routes_file:
-                        routes_text = routes_file.read().decode("utf-8")
-                        reader = csv.DictReader(StringIO(routes_text))
-                        for row in reader:
-                            route_id = row.get("route_id", "")
-                            route_short = row.get("route_short_name", "")
-                            if route_id and route_short:
-                                routes_map[route_id] = route_short
-                
-                # Parse trips to map trip_id -> route_id
-                if "trips.txt" in zip_file.namelist():
-                    with zip_file.open("trips.txt") as trips_file:
-                        trips_text = trips_file.read().decode("utf-8")
-                        reader = csv.DictReader(StringIO(trips_text))
-                        for row in reader:
-                            trip_id = row.get("trip_id", "")
-                            route_id = row.get("route_id", "")
-                            if trip_id and route_id and route_id in routes_map:
-                                trip_routes[trip_id] = routes_map[route_id]
-                
-                # Parse stop_times to link stops with routes
-                if "stop_times.txt" in zip_file.namelist():
-                    with zip_file.open("stop_times.txt") as stop_times_file:
-                        stop_times_text = stop_times_file.read().decode("utf-8")
-                        reader = csv.DictReader(StringIO(stop_times_text))
-                        
-                        for row in reader:
-                            trip_id = row.get("trip_id", "")
-                            stop_id = row.get("stop_id", "")
-                            
-                            if trip_id in trip_routes and stop_id in stops:
-                                route = trip_routes[trip_id]
-                                if route not in stops[stop_id]["routes"]:
-                                    stops[stop_id]["routes"].append(route)
-
-            _LOGGER.info("Parsed %d stops from GTFS data", len(stops))
+                    
+                    _LOGGER.info("Added %d custom stops (total: %d)", len(custom_stops), len(stops))
+                except Exception as custom_err:
+                    _LOGGER.warning("Failed to load custom stops: %s", custom_err)
+            
             return stops
 
-        except asyncio.TimeoutError as err:
-            _LOGGER.error("Timeout downloading GTFS data: %s", err)
-            raise
         except Exception as err:
-            _LOGGER.error("Error downloading/parsing GTFS data: %s", err)
+            _LOGGER.error("Error loading/parsing GTFS stops.txt: %s", err)
+            # Try to use cached data as fallback
+            cached_stops = self._cache.get_stops()
+            if cached_stops:
+                _LOGGER.warning("Using %d cached stops after error", len(cached_stops))
+                return cached_stops
             raise
 
     async def ensure_cache(self) -> None:

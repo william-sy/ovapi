@@ -21,10 +21,13 @@ from .const import (
     CONF_LINE_NUMBER,
     CONF_SCAN_INTERVAL,
     CONF_STOP_CODE,
+    CONF_STOP_CODES,
     CONF_WALKING_TIME,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_WALKING_TIME,
     DOMAIN,
+    GITHUB_CONTRIBUTING_URL,
+    GITHUB_NEW_ISSUE_URL,
     MAX_SCAN_INTERVAL,
     MIN_SCAN_INTERVAL,
 )
@@ -41,21 +44,43 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
     cache_dir = Path(hass.config.path(DOMAIN))
     gtfs_handler = GTFSDataHandler(session, cache_dir)
 
-    # Try to fetch data for the stop code
-    stop_data = await client.get_stop_info(data[CONF_STOP_CODE])
+    # Get stop codes to validate (could be one or multiple)
+    stop_codes_to_check = data.get(CONF_STOP_CODES, [data[CONF_STOP_CODE]])
     
-    if not stop_data:
-        raise ValueError("Could not fetch data for stop code")
+    # Try to fetch data for at least one stop code
+    valid_stop_found = False
+    last_error = None
     
-    # Check if we got valid data
-    has_data = False
-    for key, value in stop_data.items():
-        if key != "stopareacode" and isinstance(value, dict):
-            has_data = True
-            break
+    for stop_code in stop_codes_to_check:
+        try:
+            stop_data = await client.get_stop_info(stop_code)
+            
+            if stop_data:
+                # Check if we got valid data
+                for key, value in stop_data.items():
+                    if key != "stopareacode" and isinstance(value, dict):
+                        valid_stop_found = True
+                        break
+            
+            if valid_stop_found:
+                break
+        except Exception as err:
+            last_error = err
+            _LOGGER.debug("Stop code %s validation failed: %s", stop_code, err)
+            continue
     
-    if not has_data:
-        raise ValueError("No transit data found for this stop code")
+    if not valid_stop_found:
+        if len(stop_codes_to_check) > 1:
+            _LOGGER.warning(
+                "None of the stop codes (%s) have real-time data available", 
+                ", ".join(stop_codes_to_check)
+            )
+            raise ValueError(
+                f"None of the selected stops have real-time departure data. "
+                f"Stop codes: {', '.join(stop_codes_to_check)}"
+            )
+        else:
+            raise ValueError(f"Stop code {stop_codes_to_check[0]} has no real-time data available")
 
     # Try to get the stop name from GTFS data
     stop_name = None
@@ -111,6 +136,8 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
                 
                 if not results:
+                    # Store search query for the contribution message
+                    self.context["failed_search_query"] = user_input["search_query"]
                     errors["base"] = "no_stops_found"
                 else:
                     # Store search results for the next step
@@ -136,21 +163,32 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> FlowResult:
         """Handle stop selection from search results."""
         if user_input is not None:
-            # Extract stop code from selection
-            selected = user_input["stop"]
-            stop_code = selected.split(" - ")[0]
+            # Find the selected stop from results
+            selected_label = user_input["stop"]
+            results = self.context.get("search_results", [])
             
-            # Store the selected stop code and move to configuration
-            self.context["stop_code"] = stop_code
-            return await self.async_step_configure()
+            for stop in results:
+                label = self._build_stop_label(stop)
+                if label == selected_label:
+                    # Store the selected stop info
+                    self.context["selected_stop"] = stop
+                    
+                    # If stop has multiple directions, ask which to use
+                    if stop.get("direction_count", 1) > 1:
+                        return await self.async_step_select_direction()
+                    else:
+                        # Single stop code, go straight to configure
+                        self.context["stop_code"] = stop["stop_codes"][0]
+                        return await self.async_step_configure()
+            
+            # Fallback if not found
+            return self.async_abort(reason="stop_not_found")
 
         # Build options from search results
         results = self.context.get("search_results", [])
         options = {}
         for stop in results:
-            label = f"{stop['stop_code']} - {stop['stop_name']}"
-            if stop.get("routes"):
-                label += f" (Lines: {stop['routes']})"
+            label = self._build_stop_label(stop)
             options[label] = label
 
         return self.async_show_form(
@@ -158,6 +196,58 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema(
                 {
                     vol.Required("stop"): vol.In(options),
+                }
+            ),
+        )
+    
+    def _build_stop_label(self, stop: dict[str, Any]) -> str:
+        """Build a display label for a stop."""
+        if stop.get("direction_count", 1) > 1:
+            label = f"{stop['stop_name']} ({stop['direction_count']} directions)"
+        else:
+            label = f"{stop['stop_codes'][0]} - {stop['stop_name']}"
+        
+        if stop.get("routes"):
+            label += f" (Lines: {stop['routes']})"
+        
+        return label
+    
+    async def async_step_select_direction(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Handle direction selection for stops with multiple platforms."""
+        if user_input is not None:
+            direction_choice = user_input["direction"]
+            selected_stop = self.context.get("selected_stop", {})
+            stop_codes = selected_stop.get("stop_codes", [])
+            
+            if direction_choice == "both":
+                # Use all stop codes
+                self.context["stop_codes"] = stop_codes
+                # Force "All destinations" when using both directions
+                # since opposite directions go to different places
+                self.context["force_all_destinations"] = True
+            else:
+                # Extract the index from "Direction 1", "Direction 2", etc.
+                direction_num = int(direction_choice.split(" ")[1]) - 1
+                if 0 <= direction_num < len(stop_codes):
+                    self.context["stop_code"] = stop_codes[direction_num]
+            
+            return await self.async_step_configure()
+        
+        # Build direction options
+        selected_stop = self.context.get("selected_stop", {})
+        stop_codes = selected_stop.get("stop_codes", [])
+        
+        options = {"both": "Both directions (combined - shows next bus from any direction)"}
+        for idx, stop_code in enumerate(stop_codes, 1):
+            options[f"Direction {idx}"] = f"Direction {idx} only (Stop: {stop_code})"
+        
+        return self.async_show_form(
+            step_id="select_direction",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("direction"): vol.In(options),
                 }
             ),
         )
@@ -190,14 +280,15 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Handle the configuration step - select line number."""
         errors: dict[str, str] = {}
         stop_code = self.context.get("stop_code")
+        stop_codes = self.context.get("stop_codes")
 
         if user_input is not None:
             # Store line number selection and move to filter step
             self.context["line_number"] = user_input.get(CONF_LINE_NUMBER)
             return await self.async_step_filter()
 
-        # Fetch available line numbers for this stop
-        lines = await self._get_lines_for_stop(stop_code)
+        # Fetch available line numbers for this stop (or first stop if multiple)
+        lines = await self._get_lines_for_stop(stop_code or (stop_codes[0] if stop_codes else None))
         
         # Build schema with line number dropdown if available
         schema_dict: dict[Any, Any] = {}
@@ -212,12 +303,18 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             schema_dict[vol.Optional(CONF_LINE_NUMBER)] = str
         
         data_schema = vol.Schema(schema_dict)
+        
+        # Build description
+        if stop_codes:
+            stop_desc = f"{', '.join(stop_codes)} (both directions)"
+        else:
+            stop_desc = stop_code
 
         return self.async_show_form(
             step_id="configure",
             data_schema=data_schema,
             errors=errors,
-            description_placeholders={"stop_code": stop_code},
+            description_placeholders={"stop_code": stop_desc},
         )
 
     async def async_step_filter(
@@ -226,7 +323,9 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Handle the filter step - select destination and timing."""
         errors: dict[str, str] = {}
         stop_code = self.context.get("stop_code")
+        stop_codes = self.context.get("stop_codes")
         line_number = self.context.get("line_number")
+        force_all_destinations = self.context.get("force_all_destinations", False)
         
         # Convert "All lines" to None
         if line_number == "All lines":
@@ -238,21 +337,35 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 user_input.pop(CONF_WALKING_TIME, None)
             
             # Build final configuration
-            full_config = {CONF_STOP_CODE: stop_code}
+            full_config = {}
+            
+            # Use stop_codes if available (bidirectional), otherwise single stop_code
+            if stop_codes:
+                full_config[CONF_STOP_CODES] = stop_codes
+                full_config[CONF_STOP_CODE] = stop_codes[0]  # For backward compatibility
+                # Force "All destinations" for bidirectional to show all buses
+                user_input[CONF_DESTINATION] = "All destinations"
+            else:
+                full_config[CONF_STOP_CODE] = stop_code
+                
             if line_number:
                 full_config[CONF_LINE_NUMBER] = line_number
             full_config.update(user_input)
             
             try:
                 info = await validate_input(self.hass, full_config)
-            except ValueError:
+            except ValueError as err:
+                _LOGGER.error("Validation failed: %s", err)
                 errors["base"] = "cannot_connect"
             except Exception:  # pylint: disable=broad-except
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = "unknown"
             else:
-                # Create a unique ID based on stop code and line number
-                unique_id = f"{stop_code}_{line_number or 'all'}"
+                # Create a unique ID based on stop code(s) and line number
+                if stop_codes:
+                    unique_id = f"{'_'.join(stop_codes)}_{line_number or 'all'}"
+                else:
+                    unique_id = f"{stop_code}_{line_number or 'all'}"
                 await self.async_set_unique_id(unique_id)
                 self._abort_if_unique_id_configured()
 
@@ -261,20 +374,26 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     data=full_config,
                 )
 
-        # Fetch available destinations for this stop and line
-        destinations = await self._get_destinations_for_stop(stop_code, line_number)
-        
         # Build schema
         schema_dict: dict[Any, Any] = {}
         
-        if destinations:
-            # Add "All destinations" option
-            dest_options = ["All destinations"] + destinations
-            schema_dict[vol.Optional(CONF_DESTINATION, default="All destinations")] = selector.SelectSelector(
-                selector.SelectSelectorConfig(options=dest_options, mode=selector.SelectSelectorMode.DROPDOWN)
+        # Only show destination selection if NOT using both directions
+        # (both directions always shows all destinations since they go opposite ways)
+        if not force_all_destinations:
+            # Fetch available destinations for this stop and line (use first stop if multiple)
+            destinations = await self._get_destinations_for_stop(
+                stop_code or (stop_codes[0] if stop_codes else None), 
+                line_number
             )
-        else:
-            schema_dict[vol.Optional(CONF_DESTINATION)] = str
+            
+            if destinations:
+                # Add "All destinations" option
+                dest_options = ["All destinations"] + destinations
+                schema_dict[vol.Optional(CONF_DESTINATION, default="All destinations")] = selector.SelectSelector(
+                    selector.SelectSelectorConfig(options=dest_options, mode=selector.SelectSelectorMode.DROPDOWN)
+                )
+            else:
+                schema_dict[vol.Optional(CONF_DESTINATION)] = str
         
         schema_dict.update({
             vol.Optional(CONF_WALKING_TIME, default=0): selector.NumberSelector(
@@ -293,7 +412,13 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         
         data_schema = vol.Schema(schema_dict)
         
-        placeholders = {"stop_code": stop_code}
+        # Build description for placeholders
+        if stop_codes:
+            stop_desc = f"{', '.join(stop_codes)} (both directions)"
+        else:
+            stop_desc = stop_code
+        
+        placeholders = {"stop_code": stop_desc}
         if line_number:
             placeholders["line_number"] = line_number
 

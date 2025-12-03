@@ -16,6 +16,7 @@ from .const import (
     CONF_LINE_NUMBER,
     CONF_SCAN_INTERVAL,
     CONF_STOP_CODE,
+    CONF_STOP_CODES,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
 )
@@ -30,10 +31,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     session = async_get_clientsession(hass)
     client = OVAPIClient(session)
 
+    # Support both single stop_code and multiple stop_codes
+    stop_codes = entry.data.get(CONF_STOP_CODES)
+    if stop_codes is None:
+        # Backward compatibility: single stop_code
+        stop_codes = [entry.data[CONF_STOP_CODE]]
+
     coordinator = OVAPIDataUpdateCoordinator(
         hass,
         client=client,
-        stop_code=entry.data[CONF_STOP_CODE],
+        stop_codes=stop_codes,
         line_number=entry.data.get(CONF_LINE_NUMBER),
         destination=entry.data.get(CONF_DESTINATION),
         scan_interval=entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
@@ -60,17 +67,22 @@ class OVAPIDataUpdateCoordinator(DataUpdateCoordinator):
         self,
         hass: HomeAssistant,
         client: OVAPIClient,
-        stop_code: str,
+        stop_codes: list[str],
         line_number: str | None,
         destination: str | None,
         scan_interval: int,
     ) -> None:
         """Initialize."""
         self.client = client
-        self.stop_code = stop_code
+        self.stop_codes = stop_codes
+        # Backward compatibility
+        self.stop_code = stop_codes[0] if stop_codes else None
         # Convert "All destinations" to None for filtering
         self.line_number = line_number
         self.destination = None if destination == "All destinations" else destination
+        
+        _LOGGER.warning("Coordinator init: stop_codes=%s, line=%s, destination_raw='%s', destination_filtered=%s", 
+                       stop_codes, line_number, destination, self.destination)
 
         super().__init__(
             hass,
@@ -82,15 +94,33 @@ class OVAPIDataUpdateCoordinator(DataUpdateCoordinator):
     async def _async_update_data(self):
         """Update data via library."""
         try:
-            stop_data = await self.client.get_stop_info(self.stop_code)
+            all_passes = []
             
-            passes = self.client.filter_passes(
-                stop_data,
-                line_number=self.line_number,
-                destination=self.destination,
-            )
+            # Fetch data from all stop codes and combine
+            for stop_code in self.stop_codes:
+                stop_data = await self.client.get_stop_info(stop_code)
+                
+                passes = self.client.filter_passes(
+                    stop_data,
+                    line_number=self.line_number,
+                    destination=self.destination,
+                )
+                
+                _LOGGER.debug("Stop %s returned %d passes (line=%s, dest=%s)", 
+                             stop_code, len(passes), self.line_number, self.destination)
+                
+                all_passes.extend(passes)
             
-            return passes
+            # Sort by expected arrival time
+            all_passes.sort(key=lambda x: x.get("expected_arrival", ""))
+            
+            _LOGGER.debug("Combined %d total passes, next: line %s to %s at %s", 
+                         len(all_passes),
+                         all_passes[0].get("line_number") if all_passes else "N/A",
+                         all_passes[0].get("destination") if all_passes else "N/A",
+                         all_passes[0].get("expected_arrival") if all_passes else "N/A")
+            
+            return all_passes
         except Exception as err:
             _LOGGER.error("Error communicating with API: %s", err)
             raise UpdateFailed(f"Error communicating with API: {err}") from err

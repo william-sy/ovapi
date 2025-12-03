@@ -1,0 +1,20 @@
+[
+    {
+        "stop_id": "custom_huslystraat_1",
+        "stop_name": "Rotterdam, Huslystraat",
+        "stop_code": "31002742",
+        "stop_lat": "51.936783",
+        "stop_lon": "4.5409513",
+        "line_name": "Station Alexander - Kralingse Zoom",
+        "line_num": "36"
+    },
+    {
+        "stop_id": "custom_huslystraat_2",
+        "stop_name": "Rotterdam, Huslystraat",
+        "stop_code": "31002797",
+        "stop_lat": "51.937405",
+        "stop_lon": "4.539805",
+        "line_name": "Station Alexander - Kralingse Zoom",
+        "line_num": "36"
+    }
+]
