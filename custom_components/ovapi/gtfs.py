@@ -16,8 +16,8 @@ _LOGGER = logging.getLogger(__name__)
 # Bundled GTFS file (shipped with integration)
 # Uses gtfs-kv7 which contains only stops with confirmed real-time data (8-digit codes)
 # Community-contributed stops supplement GTFS data for stops that work but aren't in official dataset
-BUNDLED_GTFS_FILE = Path(__file__).parent.parent.parent / "gtfs" / "gtfs-kv7.zip"
-CUSTOM_STOPS_FILE = Path(__file__).parent.parent.parent / "gtfs" / "custom_stops.json"
+BUNDLED_GTFS_FILE = Path(__file__).parent / "gtfs" / "gtfs-kv7.zip"
+CUSTOM_STOPS_FILE = Path(__file__).parent / "gtfs" / "custom_stops.json"
 
 GTFS_CACHE_DURATION = timedelta(days=1)  # Cache GTFS data for 1 day
 GTFS_CACHE_FILE = "ovapi_gtfs_cache.json"
