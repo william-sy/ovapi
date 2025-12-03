@@ -39,29 +39,33 @@ This integration is not yet available in HACS but can be added as a custom repos
 
 The integration provides an easy-to-use configuration interface:
 
-**Step 1: Choose Setup Method**
+**Step 1: Choose integragion** 
 
-<img src="Screenshots/Step-1.png" alt="Setup Method" width="50%">
+<img src="Screenshots/Step-1.png" alt="Select integration" width="50%">
 
-**Step 2: Search for Stop**
+**Step 2: Choose search type**
 
-<img src="Screenshots/Step-2.png" alt="Search for Stop" width="50%">
+<img src="Screenshots/Step-2.png" alt="Choose search type" width="50%">
 
-**Step 3: Select Stop from Results**
+**Step 3: Search for Stop**
 
-<img src="Screenshots/step-3.png" alt="Select Stop" width="50%">
+<img src="Screenshots/Step-3.png" alt="Search for Stop" width="50%">
+ 
+**Step 4: Select Stop from Results**
 
-**Step 4: Configure Line Filter**
+<img src="Screenshots/step-4.png" alt="Select Stop" width="50%">
 
-<img src="Screenshots/Step-4.png" alt="Line Filter" width="50%">
+**Step 5: Configure Line Filter**
 
-**Step 5: Configure Destination Filter**
+<img src="Screenshots/Step-5.png" alt="Line Filter" width="50%">
 
-<img src="Screenshots/Step-5.png" alt="Destination Filter" width="50%">
+**Step 5: Configure options**
 
-**Step 6: Configure Walking Time and Update Interval**
+<img src="Screenshots/Step-6.png" alt="Configure options" width="50%">
 
-<img src="Screenshots/Step-6.png" alt="Walking Time and Update" width="50%">
+**Step 6: Configure entity**
+
+<img src="Screenshots/Step-7.png" alt="Configure entity" width="50%">
 
 **Result: Integration Added**
 
