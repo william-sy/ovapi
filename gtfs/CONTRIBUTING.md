@@ -7,7 +7,7 @@ Some stops work with the v0.ovapi.nl API but aren't included in the official GTF
 Add a stop to `custom_stops.json` when:
 - ✅ The stop has real-time data (verify at `http://v0.ovapi.nl/tpc/{stop_code}`)
 - ✅ The stop is NOT found in the integration's search
-- ✅ You've tested it works with manual entry
+- ✅ You've tested it works with manual entry 
 
 ## Example Entry
 
@@ -50,7 +50,7 @@ Test the stop code:
 ```bash
 curl http://v0.ovapi.nl/tpc/31002742
 ```
-
+(Or open it in your browser)
 Should return JSON with `"Passes"` data. If you get `[]`, the stop code doesn't work.
 
 ### 3. Get Coordinates

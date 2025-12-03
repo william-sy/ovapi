@@ -148,22 +148,8 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 _LOGGER.exception("Unexpected exception during search")
                 errors["base"] = "unknown"
 
-        # Build description with contribution link if search failed
-        description = "Enter a stop name or location to search"
-        if errors.get("base") == "no_stops_found":
-            search_query = self.context.get("failed_search_query", "")
-            description = (
-                f"No stops found for '{search_query}'. "
-                f"If your stop has real-time data at v0.ovapi.nl but isn't searchable:\n\n"
-                f"📝 Contribute via GitHub:\n"
-                f"• Add to custom_stops.json: {GITHUB_CONTRIBUTING_URL}\n"
-                f"• Or open an issue: {GITHUB_NEW_ISSUE_URL}\n\n"
-                f"Try a different search or use 'Manual Entry' if you know the stop code."
-            )
-
         return self.async_show_form(
             step_id="search",
-            description=description,
             data_schema=vol.Schema(
                 {
                     vol.Required("search_query"): str,

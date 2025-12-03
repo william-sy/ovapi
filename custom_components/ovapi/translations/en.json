@@ -11,7 +11,7 @@
       },
       "search": {
         "title": "Search for Stop",
-        "description": "Enter a stop name or location to search",
+        "description": "Enter a stop name or location to search.\n\nIf your stop isn't found but works at v0.ovapi.nl, you can contribute it:\n• Add to custom_stops.json (see GitHub CONTRIBUTING.md)\n• Or open a GitHub issue\n• Or use Manual Entry with the stop code",
         "data": {
           "search_query": "Search Query"
         }
