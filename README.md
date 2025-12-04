@@ -49,11 +49,11 @@ The integration provides an easy-to-use configuration interface:
 
 **Step 3: Search for Stop**
 
-<img src="Screenshots/Step-3.png" alt="Search for Stop" width="50%">
+<img src="Screenshots/step-3.png" alt="Search for Stop" width="50%">
  
 **Step 4: Select Stop from Results**
 
-<img src="Screenshots/step-4.png" alt="Select Stop" width="50%">
+<img src="Screenshots/Step-4.png" alt="Select Stop" width="50%">
 
 **Step 5: Configure Line Filter**
 
