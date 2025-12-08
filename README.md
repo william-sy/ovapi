@@ -71,6 +71,19 @@ The integration provides an easy-to-use configuration interface:
 
 <img src="Screenshots/Result.png" alt="Integration Added" width="50%">
 
+## Finding Your Stop Code
+
+Not sure what stop code to use? Use our **[TPC Finder Tool](https://william-sy.github.io/ovapi-tpc-finder/)** to easily browse and search all available stops!
+
+**Features:**
+- 🔍 Search by city and stop name
+- 🟢 Filter for stops with real-time data only
+- 📋 One-click copy of stop codes
+- 🗺️ View stop locations on OpenStreetMap
+- 🚌 See which lines serve each stop
+
+This makes it much easier to find the right stop code compared to OVzoeker!
+
 ## Configuration
 
 ### Through the UI (Recommended)
@@ -80,7 +93,7 @@ The integration provides an easy-to-use configuration interface:
 3. Search for "OVAPI Bus Information"
 4. Choose your setup method:
    - **Search for a stop**: Search by stop name or location (easiest method)
-   - **Enter stop code manually**: If you already know your stop code
+   - **Enter stop code manually**: If you already know your stop code (use [TPC Finder](https://william-sy.github.io/ovapi-tpc-finder/) to find it!)
 
 #### Option 1: Search for a Stop
 1. Enter a search query (e.g., "Amsterdam Centraal", "Stationsplein", etc.)
