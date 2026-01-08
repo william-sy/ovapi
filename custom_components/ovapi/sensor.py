@@ -62,6 +62,8 @@ async def async_setup_entry(
         OVAPINextDelayTimeSensor(coordinator, entry),
         OVAPICurrentDepartureTimeSensor(coordinator, entry),
         OVAPINextDepartureTimeSensor(coordinator, entry),
+        OVAPICurrentDepartureClockSensor(coordinator, entry),
+        OVAPINextDepartureClockSensor(coordinator, entry),
     ]
     
     # Only add walking planner sensor if walking time is configured (> 0)
@@ -394,4 +396,123 @@ class OVAPIWalkingPlannerSensor(OVAPIBaseSensor):
             "should_leave_now": should_leave_now,
             "bus_line": bus.get("line_number"),
             "bus_destination": bus.get("destination"),
+        }
+
+
+class OVAPICurrentDepartureClockSensor(OVAPIBaseSensor):
+    """Sensor showing actual departure time (HH:MM) including delays."""
+
+    _attr_icon = "mdi:clock-time-four"
+    _attr_translation_key = "current_departure_clock"
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+
+    def __init__(
+        self,
+        coordinator: OVAPIDataUpdateCoordinator,
+        entry: ConfigEntry,
+    ) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_current_departure_clock"
+
+    @property
+    def native_value(self) -> datetime | None:
+        """Return the actual departure time as timestamp."""
+        if not self.coordinator.data or len(self.coordinator.data) == 0:
+            return None
+        
+        bus = self.coordinator.data[0]
+        expected_arrival = bus.get("expected_arrival")
+        
+        if not expected_arrival:
+            return None
+        
+        try:
+            # expected_arrival is Unix timestamp in milliseconds
+            return datetime.fromtimestamp(expected_arrival / 1000)
+        except (ValueError, TypeError):
+            return None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return additional attributes."""
+        if not self.coordinator.data or len(self.coordinator.data) == 0:
+            return {}
+        
+        bus = self.coordinator.data[0]
+        target_arrival = bus.get("target_arrival")
+        
+        scheduled_time = None
+        if target_arrival:
+            try:
+                scheduled_time = datetime.fromtimestamp(target_arrival / 1000)
+            except (ValueError, TypeError):
+                pass
+        
+        return {
+            "line_number": bus.get("line_number"),
+            "destination": bus.get("destination"),
+            "delay_minutes": bus.get("delay", 0),
+            "scheduled_time": scheduled_time,
+            "transport_type": bus.get("transport_type"),
+        }
+
+
+class OVAPINextDepartureClockSensor(OVAPIBaseSensor):
+    """Sensor showing actual departure time (HH:MM) for next bus including delays."""
+
+    _attr_icon = "mdi:clock-time-four-outline"
+    _attr_translation_key = "next_departure_clock"
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_entity_registry_enabled_default = False
+
+    def __init__(
+        self,
+        coordinator: OVAPIDataUpdateCoordinator,
+        entry: ConfigEntry,
+    ) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_next_departure_clock"
+
+    @property
+    def native_value(self) -> datetime | None:
+        """Return the actual departure time as timestamp."""
+        if not self.coordinator.data or len(self.coordinator.data) < 2:
+            return None
+        
+        bus = self.coordinator.data[1]
+        expected_arrival = bus.get("expected_arrival")
+        
+        if not expected_arrival:
+            return None
+        
+        try:
+            # expected_arrival is Unix timestamp in milliseconds
+            return datetime.fromtimestamp(expected_arrival / 1000)
+        except (ValueError, TypeError):
+            return None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return additional attributes."""
+        if not self.coordinator.data or len(self.coordinator.data) < 2:
+            return {}
+        
+        bus = self.coordinator.data[1]
+        target_arrival = bus.get("target_arrival")
+        
+        scheduled_time = None
+        if target_arrival:
+            try:
+                scheduled_time = datetime.fromtimestamp(target_arrival / 1000)
+            except (ValueError, TypeError):
+                pass
+        
+        return {
+            "line_number": bus.get("line_number"),
+            "destination": bus.get("destination"),
+            "delay_minutes": bus.get("delay", 0),
+            "scheduled_time": scheduled_time,
+            "transport_type": bus.get("transport_type"),
         }

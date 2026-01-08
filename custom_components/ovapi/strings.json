@@ -10,15 +10,8 @@
         }
       },
       "search": {
-        "title": "Select City",
-        "description": "Select your city to search for stops.\n\n✨ Now using reliable data from TPC Finder!\n🟢 Only shows stops with real-time data\n\nFull stop browser: https://william-sy.github.io/ovapi-tpc-finder/",
-        "data": {
-          "city": "City"
-        }
-      },
-      "search_stop": {
-        "title": "Search for Stop in {city}",
-        "description": "Enter a stop name or part of the TPC code to search.\n\n🟢 Only showing stops with real-time data in {city}",
+        "title": "Search for Stop",
+        "description": "Enter a stop name or location to search.\n\nIf your stop isn't found but works at v0.ovapi.nl, you can contribute it:\n• Add to custom_stops.json (see GitHub CONTRIBUTING.md)\n• Or open a GitHub issue\n• Or use Manual Entry with the stop code",
         "data": {
           "search_query": "Search Query"
         }
@@ -32,7 +25,7 @@
       },
       "manual": {
         "title": "Enter Stop Code",
-        "description": "Enter your bus stop code manually.\n\nNeed help finding your stop code? Use our TPC Finder tool:\nhttps://william-sy.github.io/ovapi-tpc-finder/\n\nFilter by real-time data only to find stops that work with this integration!",
+        "description": "Enter your bus stop code manually",
         "data": {
           "stop_code": "Stop Code"
         }
@@ -108,6 +101,12 @@
       },
       "next_departure": {
         "name": "Next vehicle departure"
+      },
+      "current_departure_clock": {
+        "name": "Current departure time"
+      },
+      "next_departure_clock": {
+        "name": "Next departure time"
       },
       "time_to_leave": {
         "name": "Time to leave"
