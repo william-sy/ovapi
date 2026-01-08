@@ -120,24 +120,81 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_search(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Handle the search step."""
-        from .gtfs import GTFSDataHandler  # Lazy import to avoid blocking
+        """Handle the city selection step."""
+        from .tpc_search import TPCSearchHandler
         
         errors: dict[str, str] = {}
 
         if user_input is not None:
+            # Store selected city and move to stop search
+            self.context["selected_city"] = user_input["city"]
+            return await self.async_step_search_stop()
+
+        # Load cities list
+        try:
+            session = async_get_clientsession(self.hass)
+            tpc_handler = TPCSearchHandler(session)
+            cities = await tpc_handler.get_cities()
+            
+            if not cities:
+                errors["base"] = "cannot_connect"
+            else:
+                # Build city options
+                city_options = {}
+                for city in sorted(cities, key=lambda x: x["name"]):
+                    label = f"{city['name']} ({city['stop_count']} stops)"
+                    city_options[city["name"]] = label
+                
+                return self.async_show_form(
+                    step_id="search",
+                    data_schema=vol.Schema(
+                        {
+                            vol.Required("city"): vol.In(city_options),
+                        }
+                    ),
+                    description_placeholders={
+                        "info": "Select your city to search for stops with real-time data."
+                    },
+                    errors=errors,
+                )
+                
+        except Exception:  # pylint: disable=broad-except
+            _LOGGER.exception("Unexpected exception loading cities")
+            errors["base"] = "unknown"
+
+        return self.async_show_form(
+            step_id="search",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("city"): str,
+                }
+            ),
+            errors=errors,
+        )
+    
+    async def async_step_search_stop(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Handle the stop search step within selected city."""
+        from .tpc_search import TPCSearchHandler
+        
+        errors: dict[str, str] = {}
+        selected_city = self.context.get("selected_city")
+
+        if user_input is not None:
             try:
                 session = async_get_clientsession(self.hass)
-                cache_dir = Path(self.hass.config.path(DOMAIN))
-                gtfs_handler = GTFSDataHandler(session, cache_dir)
+                tpc_handler = TPCSearchHandler(session)
                 
-                results = await gtfs_handler.search_stops(
-                    user_input["search_query"], limit=20
+                # Search within the selected city, real-time only
+                results = await tpc_handler.search_stops(
+                    user_input["search_query"],
+                    city=selected_city,
+                    realtime_only=True,
+                    limit=20
                 )
                 
                 if not results:
-                    # Store search query for the contribution message
-                    self.context["failed_search_query"] = user_input["search_query"]
                     errors["base"] = "no_stops_found"
                 else:
                     # Store search results for the next step
@@ -145,16 +202,19 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     return await self.async_step_select_stop()
                     
             except Exception:  # pylint: disable=broad-except
-                _LOGGER.exception("Unexpected exception during search")
+                _LOGGER.exception("Unexpected exception during stop search")
                 errors["base"] = "unknown"
 
         return self.async_show_form(
-            step_id="search",
+            step_id="search_stop",
             data_schema=vol.Schema(
                 {
                     vol.Required("search_query"): str,
                 }
             ),
+            description_placeholders={
+                "city": selected_city or "selected city",
+            },
             errors=errors,
         )
 
