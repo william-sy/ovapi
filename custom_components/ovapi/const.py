@@ -25,12 +25,6 @@ GITHUB_REPO = "william-sy/ovapi"
 GITHUB_NEW_ISSUE_URL = "https://github.com/william-sy/ovapi/issues/new"
 GITHUB_CONTRIBUTING_URL = "https://github.com/william-sy/ovapi/blob/main/gtfs/CONTRIBUTING.md"
 
-# TPC Finder Data URLs
-TPC_FINDER_BASE_URL = "https://william-sy.github.io/ovapi-tpc-finder/data"
-TPC_FINDER_CITIES_URL = f"{TPC_FINDER_BASE_URL}/cities.json"
-TPC_FINDER_STOPS_URL = f"{TPC_FINDER_BASE_URL}/stops_by_city.json"
-TPC_FINDER_LINES_URL = f"{TPC_FINDER_BASE_URL}/lines_by_stop.json"
-
 # Sensor types
 SENSOR_CURRENT_BUS = "current_bus"
 SENSOR_NEXT_BUS = "next_bus"

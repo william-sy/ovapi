@@ -428,8 +428,8 @@ class OVAPICurrentDepartureClockSensor(OVAPIBaseSensor):
             return None
         
         try:
-            # expected_arrival is Unix timestamp in milliseconds
-            return datetime.fromtimestamp(expected_arrival / 1000)
+            # expected_arrival is ISO format string: "2026-01-09T13:46:00"
+            return datetime.fromisoformat(expected_arrival)
         except (ValueError, TypeError):
             return None
 
@@ -445,7 +445,7 @@ class OVAPICurrentDepartureClockSensor(OVAPIBaseSensor):
         scheduled_time = None
         if target_arrival:
             try:
-                scheduled_time = datetime.fromtimestamp(target_arrival / 1000)
+                scheduled_time = datetime.fromisoformat(target_arrival)
             except (ValueError, TypeError):
                 pass
         
@@ -488,8 +488,8 @@ class OVAPINextDepartureClockSensor(OVAPIBaseSensor):
             return None
         
         try:
-            # expected_arrival is Unix timestamp in milliseconds
-            return datetime.fromtimestamp(expected_arrival / 1000)
+            # expected_arrival is ISO format string: "2026-01-09T13:46:00"
+            return datetime.fromisoformat(expected_arrival)
         except (ValueError, TypeError):
             return None
 
@@ -505,7 +505,7 @@ class OVAPINextDepartureClockSensor(OVAPIBaseSensor):
         scheduled_time = None
         if target_arrival:
             try:
-                scheduled_time = datetime.fromtimestamp(target_arrival / 1000)
+                scheduled_time = datetime.fromisoformat(target_arrival)
             except (ValueError, TypeError):
                 pass
         
