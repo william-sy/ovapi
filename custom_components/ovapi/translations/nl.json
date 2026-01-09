@@ -79,6 +79,12 @@
       "next_departure_clock": {
         "name": "Volgende vertrektijd"
       },
+      "current_departure_time_text": {
+        "name": "Huidige vertrektijd (tekst)"
+      },
+      "next_departure_time_text": {
+        "name": "Volgende vertrektijd (tekst)"
+      },
       "time_to_leave": {
         "name": "Vertrektijd"
       }

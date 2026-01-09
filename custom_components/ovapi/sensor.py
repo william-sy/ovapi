@@ -65,6 +65,8 @@ async def async_setup_entry(
         OVAPINextDepartureTimeSensor(coordinator, entry),
         OVAPICurrentDepartureClockSensor(coordinator, entry),
         OVAPINextDepartureClockSensor(coordinator, entry),
+        OVAPICurrentDepartureTimeTextSensor(coordinator, entry),
+        OVAPINextDepartureTimeTextSensor(coordinator, entry),
     ]
     
     # Only add walking planner sensor if walking time is configured (> 0)
@@ -521,5 +523,104 @@ class OVAPINextDepartureClockSensor(OVAPIBaseSensor):
             "destination": bus.get("destination"),
             "delay_minutes": bus.get("delay", 0),
             "scheduled_time": scheduled_time,
+            "transport_type": bus.get("transport_type"),
+        }
+
+
+class OVAPICurrentDepartureTimeTextSensor(OVAPIBaseSensor):
+    """Sensor showing departure time as HH:MM text format."""
+
+    _attr_icon = "mdi:clock-digital"
+    _attr_translation_key = "current_departure_time_text"
+
+    def __init__(
+        self,
+        coordinator: OVAPIDataUpdateCoordinator,
+        entry: ConfigEntry,
+    ) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_current_departure_time_text"
+
+    @property
+    def native_value(self) -> str | None:
+        """Return the departure time as HH:MM text."""
+        if not self.coordinator.data or len(self.coordinator.data) == 0:
+            return None
+        
+        bus = self.coordinator.data[0]
+        expected_arrival = bus.get("expected_arrival")
+        
+        if not expected_arrival:
+            return None
+        
+        try:
+            # Parse and format as HH:MM
+            dt = datetime.fromisoformat(expected_arrival)
+            return dt.strftime("%H:%M")
+        except (ValueError, TypeError):
+            return None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return additional attributes."""
+        if not self.coordinator.data or len(self.coordinator.data) == 0:
+            return {}
+        
+        bus = self.coordinator.data[0]
+        return {
+            "line_number": bus.get("line_number"),
+            "destination": bus.get("destination"),
+            "delay_minutes": bus.get("delay", 0),
+            "transport_type": bus.get("transport_type"),
+        }
+
+
+class OVAPINextDepartureTimeTextSensor(OVAPIBaseSensor):
+    """Sensor showing next departure time as HH:MM text format."""
+
+    _attr_icon = "mdi:clock-digital"
+    _attr_translation_key = "next_departure_time_text"
+    _attr_entity_registry_enabled_default = False
+
+    def __init__(
+        self,
+        coordinator: OVAPIDataUpdateCoordinator,
+        entry: ConfigEntry,
+    ) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_next_departure_time_text"
+
+    @property
+    def native_value(self) -> str | None:
+        """Return the departure time as HH:MM text."""
+        if not self.coordinator.data or len(self.coordinator.data) < 2:
+            return None
+        
+        bus = self.coordinator.data[1]
+        expected_arrival = bus.get("expected_arrival")
+        
+        if not expected_arrival:
+            return None
+        
+        try:
+            # Parse and format as HH:MM
+            dt = datetime.fromisoformat(expected_arrival)
+            return dt.strftime("%H:%M")
+        except (ValueError, TypeError):
+            return None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return additional attributes."""
+        if not self.coordinator.data or len(self.coordinator.data) < 2:
+            return {}
+        
+        bus = self.coordinator.data[1]
+        return {
+            "line_number": bus.get("line_number"),
+            "destination": bus.get("destination"),
+            "delay_minutes": bus.get("delay", 0),
             "transport_type": bus.get("transport_type"),
         }

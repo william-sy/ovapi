@@ -79,6 +79,12 @@
       "next_departure_clock": {
         "name": "Next departure time"
       },
+      "current_departure_time_text": {
+        "name": "Current departure time (text)"
+      },
+      "next_departure_time_text": {
+        "name": "Next departure time (text)"
+      },
       "time_to_leave": {
         "name": "Time to leave"
       }
