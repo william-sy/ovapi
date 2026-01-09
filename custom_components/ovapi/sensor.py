@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 import logging
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -429,7 +430,9 @@ class OVAPICurrentDepartureClockSensor(OVAPIBaseSensor):
         
         try:
             # expected_arrival is ISO format string: "2026-01-09T13:46:00"
-            return datetime.fromisoformat(expected_arrival)
+            # Add timezone info (Europe/Amsterdam for Dutch public transport)
+            dt = datetime.fromisoformat(expected_arrival)
+            return dt.replace(tzinfo=ZoneInfo("Europe/Amsterdam"))
         except (ValueError, TypeError):
             return None
 
@@ -445,7 +448,8 @@ class OVAPICurrentDepartureClockSensor(OVAPIBaseSensor):
         scheduled_time = None
         if target_arrival:
             try:
-                scheduled_time = datetime.fromisoformat(target_arrival)
+                dt = datetime.fromisoformat(target_arrival)
+                scheduled_time = dt.replace(tzinfo=ZoneInfo("Europe/Amsterdam"))
             except (ValueError, TypeError):
                 pass
         
@@ -489,7 +493,9 @@ class OVAPINextDepartureClockSensor(OVAPIBaseSensor):
         
         try:
             # expected_arrival is ISO format string: "2026-01-09T13:46:00"
-            return datetime.fromisoformat(expected_arrival)
+            # Add timezone info (Europe/Amsterdam for Dutch public transport)
+            dt = datetime.fromisoformat(expected_arrival)
+            return dt.replace(tzinfo=ZoneInfo("Europe/Amsterdam"))
         except (ValueError, TypeError):
             return None
 
@@ -505,7 +511,8 @@ class OVAPINextDepartureClockSensor(OVAPIBaseSensor):
         scheduled_time = None
         if target_arrival:
             try:
-                scheduled_time = datetime.fromisoformat(target_arrival)
+                dt = datetime.fromisoformat(target_arrival)
+                scheduled_time = dt.replace(tzinfo=ZoneInfo("Europe/Amsterdam"))
             except (ValueError, TypeError):
                 pass
         
