@@ -373,12 +373,7 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         
         # If we have errors, show them and don't continue
         if errors:
-            return self.async_abort(
-                reason="cannot_connect",
-                description_placeholders={
-                    "error": "Stop not found in OVAPI or has no active services. Please try a different stop."
-                }
-            )
+            return self.async_abort(reason="stop_not_found")
         
         # Build schema with line number dropdown if available
         schema_dict: dict[Any, Any] = {}

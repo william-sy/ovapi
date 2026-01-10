@@ -63,7 +63,9 @@
       "no_stops_found": "No stops found. If your stop works at v0.ovapi.nl but isn't searchable, you can contribute it via GitHub (see description above) or use Manual Entry with the stop code."
     },
     "abort": {
-      "already_configured": "This stop and line combination is already configured"
+      "already_configured": "This stop and line combination is already configured",
+      "stop_not_found": "Stop not found in OVAPI or has no active services.\n\nThis stop may not exist or be offline. Please try:\n• Use the TPC Finder to find a working stop: https://william-sy.github.io/ovapi-tpc-finder/\n• Or use Manual Entry if you have a verified stop code",
+      "cannot_connect": "Stop not found in OVAPI or has no active services.\n\nThis stop may not exist or be offline. Please try:\n• Use the TPC Finder to find a working stop: https://william-sy.github.io/ovapi-tpc-finder/\n• Or use Manual Entry if you have a verified stop code"
     }
   },
   "options": {
