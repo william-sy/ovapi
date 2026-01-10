@@ -94,10 +94,9 @@ class TPCSearchHandler:
             stops = self._stops_by_city.get(city_name, [])
 
             for stop in stops:
-                # Filter by real-time availability if requested
-                if realtime_only and not stop.get("hasRealtime", False):
-                    continue
-
+                # Don't filter by hasRealtime here - the flag is unreliable
+                # Let OVAPI validation determine if stops actually work
+                
                 # Match by stop name or TPC code (case-insensitive)
                 stop_name = stop.get("name", "")
                 stop_name_lower = stop_name.lower()
@@ -167,10 +166,9 @@ class TPCSearchHandler:
         grouped_stops = {}  # Map stop_name -> list of stop data
 
         for stop in stops:
-            # Filter by real-time availability if requested
-            if realtime_only and not stop.get("hasRealtime", False):
-                continue
-
+            # Don't filter by hasRealtime - the flag is unreliable
+            # Let OVAPI validation determine if stops actually work
+            
             stop_name = stop.get("name", "")
             if stop_name not in grouped_stops:
                 grouped_stops[stop_name] = []

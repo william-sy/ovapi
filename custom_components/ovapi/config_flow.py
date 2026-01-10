@@ -360,7 +360,25 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return await self.async_step_filter()
 
         # Fetch available line numbers for this stop (or first stop if multiple)
-        lines = await self._get_lines_for_stop(stop_code or (stop_codes[0] if stop_codes else None))
+        try:
+            lines = await self._get_lines_for_stop(stop_code or (stop_codes[0] if stop_codes else None))
+        except ValueError as err:
+            _LOGGER.error("Failed to fetch lines: %s", err)
+            errors["base"] = "cannot_connect"
+            lines = []
+        except Exception as err:
+            _LOGGER.exception("Unexpected error fetching lines")
+            errors["base"] = "unknown"
+            lines = []
+        
+        # If we have errors, show them and don't continue
+        if errors:
+            return self.async_abort(
+                reason="cannot_connect",
+                description_placeholders={
+                    "error": "Stop not found in OVAPI or has no active services. Please try a different stop."
+                }
+            )
         
         # Build schema with line number dropdown if available
         schema_dict: dict[Any, Any] = {}
@@ -508,28 +526,27 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def _get_lines_for_stop(self, stop_code: str) -> list[str]:
         """Get available line numbers for a stop."""
-        try:
-            session = async_get_clientsession(self.hass)
-            client = OVAPIClient(session)
-            stop_data = await client.get_stop_info(stop_code)
-            
-            lines = set()
-            
-            # Extract all unique line numbers from the stop data
-            for stop_key, stop_info in stop_data.items():
-                if not isinstance(stop_info, dict):
-                    continue
-                    
-                if "Passes" in stop_info:
-                    for pass_data in stop_info["Passes"].values():
-                        line = pass_data.get("LinePublicNumber")
-                        if line:
-                            lines.add(line)
-            
-            return sorted(list(lines))
-        except Exception as err:
-            _LOGGER.debug("Could not fetch line numbers: %s", err)
-            return []
+        session = async_get_clientsession(self.hass)
+        client = OVAPIClient(session)
+        stop_data = await client.get_stop_info(stop_code)
+        
+        lines = set()
+        
+        # Extract all unique line numbers from the stop data
+        for stop_key, stop_info in stop_data.items():
+            if not isinstance(stop_info, dict):
+                continue
+                
+            if "Passes" in stop_info:
+                for pass_data in stop_info["Passes"].values():
+                    line = pass_data.get("LinePublicNumber")
+                    if line:
+                        lines.add(line)
+        
+        if not lines:
+            raise ValueError(f"No lines found for stop {stop_code}. Stop may not exist or has no active services.")
+        
+        return sorted(list(lines))
 
     async def _get_destinations_for_stop(self, stop_code: str, line_number: str | None = None) -> list[str]:
         """Get available destinations for a stop, optionally filtered by line."""
@@ -561,10 +578,17 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 "Found %d destinations for stop %s, line %s: %s",
                 len(destinations), stop_code, line_number, sorted(destinations)
             )
+            
+            if not destinations:
+                raise ValueError(f"No destinations found for stop {stop_code}, line {line_number}. Stop may not exist or line has no active services.")
+            
             return sorted(list(destinations))
+        except aiohttp.ClientError as err:
+            _LOGGER.error("Could not fetch destinations for stop %s: %s", stop_code, err)
+            raise ValueError(f"Stop {stop_code} not found in OVAPI (may not exist or be offline).") from err
         except Exception as err:
-            _LOGGER.error("Could not fetch destinations: %s", err)
-            return []
+            _LOGGER.error("Unexpected error fetching destinations: %s", err)
+            raise
 
     async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Handle reconfiguration of the integration."""
