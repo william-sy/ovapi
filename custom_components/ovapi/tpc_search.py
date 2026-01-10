@@ -98,10 +98,10 @@ class TPCSearchHandler:
                 if realtime_only and not stop.get("hasRealtime", False):
                     continue
 
-                # Match by stop name or TPC code
+                # Match by stop name or TPC code (case-insensitive)
                 stop_name = stop.get("name", "")
                 stop_name_lower = stop_name.lower()
-                stop_tpc = stop.get("tpc", "")
+                stop_tpc = stop.get("tpc", "").lower()  # Make TPC search case-insensitive too
 
                 if query_lower in stop_name_lower or query_lower in stop_tpc:
                     # Group by city and stop name

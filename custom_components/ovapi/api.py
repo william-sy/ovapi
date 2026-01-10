@@ -85,6 +85,7 @@ class OVAPIClient:
                             pass_data.get("TargetArrivalTime")
                         ),
                         "transport_type": pass_data.get("TransportType"),
+                        "stop_code": stop_key,  # Track which stop this bus is at
                     })
         
         # Sort by expected arrival time

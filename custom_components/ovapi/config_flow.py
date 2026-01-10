@@ -416,10 +416,15 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             try:
                 info = await validate_input(self.hass, full_config)
             except ValueError as err:
-                _LOGGER.error("Validation failed: %s", err)
+                _LOGGER.error(
+                    "Validation failed for config %s: %s",
+                    {k: v for k, v in full_config.items() if k != "session"},
+                    err,
+                    exc_info=True
+                )
                 errors["base"] = "cannot_connect"
             except Exception:  # pylint: disable=broad-except
-                _LOGGER.exception("Unexpected exception")
+                _LOGGER.exception("Unexpected exception during validation")
                 errors["base"] = "unknown"
             else:
                 # Create a unique ID based on stop code(s) and line number

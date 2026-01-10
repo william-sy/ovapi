@@ -158,6 +158,7 @@ class OVAPICurrentBusSensor(OVAPIBaseSensor):
             "delay_minutes": bus.get("delay"),
             "transport_type": bus.get("transport_type"),
             "minutes_until_departure": minutes_until,
+            "stop_code": bus.get("stop_code"),  # Show which direction/stop
         }
 
 
@@ -214,6 +215,7 @@ class OVAPINextBusSensor(OVAPIBaseSensor):
             "delay_minutes": bus.get("delay"),
             "transport_type": bus.get("transport_type"),
             "minutes_until_departure": minutes_until,
+            "stop_code": bus.get("stop_code"),  # Show which direction/stop
         }
 
 
@@ -399,6 +401,7 @@ class OVAPIWalkingPlannerSensor(OVAPIBaseSensor):
             "should_leave_now": should_leave_now,
             "bus_line": bus.get("line_number"),
             "bus_destination": bus.get("destination"),
+            "stop_code": bus.get("stop_code"),
         }
 
 
@@ -461,6 +464,7 @@ class OVAPICurrentDepartureClockSensor(OVAPIBaseSensor):
             "delay_minutes": bus.get("delay", 0),
             "scheduled_time": scheduled_time,
             "transport_type": bus.get("transport_type"),
+            "stop_code": bus.get("stop_code"),
         }
 
 
@@ -524,6 +528,7 @@ class OVAPINextDepartureClockSensor(OVAPIBaseSensor):
             "delay_minutes": bus.get("delay", 0),
             "scheduled_time": scheduled_time,
             "transport_type": bus.get("transport_type"),
+            "stop_code": bus.get("stop_code"),
         }
 
 
@@ -573,6 +578,7 @@ class OVAPICurrentDepartureTimeTextSensor(OVAPIBaseSensor):
             "destination": bus.get("destination"),
             "delay_minutes": bus.get("delay", 0),
             "transport_type": bus.get("transport_type"),
+            "stop_code": bus.get("stop_code"),
         }
 
 
@@ -623,4 +629,5 @@ class OVAPINextDepartureTimeTextSensor(OVAPIBaseSensor):
             "destination": bus.get("destination"),
             "delay_minutes": bus.get("delay", 0),
             "transport_type": bus.get("transport_type"),
+            "stop_code": bus.get("stop_code"),
         }
