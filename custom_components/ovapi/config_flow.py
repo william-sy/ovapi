@@ -363,11 +363,11 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         try:
             lines = await self._get_lines_for_stop(stop_code or (stop_codes[0] if stop_codes else None))
         except ValueError as err:
-            _LOGGER.error("Failed to fetch lines: %s", err)
+            _LOGGER.debug("Failed to fetch lines: %s", err)
             errors["base"] = "cannot_connect"
             lines = []
         except Exception as err:
-            _LOGGER.exception("Unexpected error fetching lines")
+            _LOGGER.debug("Error fetching lines: %s", err)
             errors["base"] = "unknown"
             lines = []
         
