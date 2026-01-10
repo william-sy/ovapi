@@ -77,6 +77,7 @@ class TPCSearchHandler:
 
         Returns:
             List of stop dictionaries with stop_codes, stop_name, city, etc.
+            Stops with the same name are grouped together with multiple stop_codes.
         """
         await self._load_data()
 
@@ -84,7 +85,7 @@ class TPCSearchHandler:
             return []
 
         query_lower = query.lower().strip()
-        results = []
+        grouped_stops = {}  # Map (city, stop_name) -> list of stop data
 
         # Determine which cities to search
         cities_to_search = [city] if city else list(self._stops_by_city.keys())
@@ -98,31 +99,49 @@ class TPCSearchHandler:
                     continue
 
                 # Match by stop name or TPC code
-                stop_name_lower = stop.get("name", "").lower()
+                stop_name = stop.get("name", "")
+                stop_name_lower = stop_name.lower()
                 stop_tpc = stop.get("tpc", "")
 
                 if query_lower in stop_name_lower or query_lower in stop_tpc:
-                    # Get lines for this stop
-                    lines = self._lines_by_stop.get(stop_tpc, [])
-                    line_numbers = [str(line.get("number", "?")) for line in lines]
+                    # Group by city and stop name
+                    key = (city_name, stop_name)
+                    if key not in grouped_stops:
+                        grouped_stops[key] = []
+                    
+                    grouped_stops[key].append(stop)
 
-                    results.append(
-                        {
-                            "stop_codes": [stop_tpc],
-                            "stop_name": stop.get("name"),
-                            "city": city_name,
-                            "area": stop.get("area"),
-                            "hasRealtime": stop.get("hasRealtime", False),
-                            "routes": ", ".join(line_numbers[:5]),  # Show first 5 lines
-                            "direction_count": 1,
-                            "lat": stop.get("lat"),
-                            "lon": stop.get("lon"),
-                        }
-                    )
-
-                    if len(results) >= limit:
-                        break
-
+        # Convert grouped stops to results
+        results = []
+        for (city_name, stop_name), stops in grouped_stops.items():
+            # Collect all stop codes and lines for this location
+            stop_codes = []
+            all_lines = set()
+            
+            for stop in stops:
+                stop_tpc = stop.get("tpc", "")
+                stop_codes.append(stop_tpc)
+                
+                # Get lines for this stop code
+                lines = self._lines_by_stop.get(stop_tpc, [])
+                for line in lines:
+                    all_lines.add(str(line.get("number", "?")))
+            
+            # Use coordinates from first stop (they should be similar)
+            first_stop = stops[0]
+            
+            results.append({
+                "stop_codes": stop_codes,
+                "stop_name": stop_name,
+                "city": city_name,
+                "area": first_stop.get("area"),
+                "hasRealtime": first_stop.get("hasRealtime", False),
+                "routes": ", ".join(sorted(all_lines)[:5]),  # Show first 5 lines
+                "direction_count": len(stop_codes),
+                "lat": first_stop.get("lat"),
+                "lon": first_stop.get("lon"),
+            })
+            
             if len(results) >= limit:
                 break
 
