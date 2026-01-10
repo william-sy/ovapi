@@ -156,7 +156,7 @@ class TPCSearchHandler:
             realtime_only: Only return stops with real-time data
 
         Returns:
-            List of stop dictionaries
+            List of stop dictionaries grouped by location (stop name)
         """
         await self._load_data()
 
@@ -164,30 +164,48 @@ class TPCSearchHandler:
             return []
 
         stops = self._stops_by_city.get(city_name, [])
-        results = []
+        grouped_stops = {}  # Map stop_name -> list of stop data
 
         for stop in stops:
             # Filter by real-time availability if requested
             if realtime_only and not stop.get("hasRealtime", False):
                 continue
 
-            # Get lines for this stop
-            stop_tpc = stop.get("tpc", "")
-            lines = self._lines_by_stop.get(stop_tpc, [])
-            line_numbers = [str(line.get("number", "?")) for line in lines]
+            stop_name = stop.get("name", "")
+            if stop_name not in grouped_stops:
+                grouped_stops[stop_name] = []
+            
+            grouped_stops[stop_name].append(stop)
 
-            results.append(
-                {
-                    "stop_codes": [stop_tpc],
-                    "stop_name": stop.get("name"),
-                    "city": city_name,
-                    "area": stop.get("area"),
-                    "hasRealtime": stop.get("hasRealtime", False),
-                    "routes": ", ".join(line_numbers[:5]),
-                    "direction_count": 1,
-                    "lat": stop.get("lat"),
-                    "lon": stop.get("lon"),
-                }
-            )
+        # Convert grouped stops to results
+        results = []
+        for stop_name, stops in grouped_stops.items():
+            # Collect all stop codes and lines for this location
+            stop_codes = []
+            all_lines = set()
+            
+            for stop in stops:
+                stop_tpc = stop.get("tpc", "")
+                stop_codes.append(stop_tpc)
+                
+                # Get lines for this stop code
+                lines = self._lines_by_stop.get(stop_tpc, [])
+                for line in lines:
+                    all_lines.add(str(line.get("number", "?")))
+            
+            # Use coordinates from first stop
+            first_stop = stops[0]
+            
+            results.append({
+                "stop_codes": stop_codes,
+                "stop_name": stop_name,
+                "city": city_name,
+                "area": first_stop.get("area"),
+                "hasRealtime": first_stop.get("hasRealtime", False),
+                "routes": ", ".join(sorted(all_lines)[:5]),  # Show first 5 lines
+                "direction_count": len(stop_codes),
+                "lat": first_stop.get("lat"),
+                "lon": first_stop.get("lon"),
+            })
 
-        return results
+        return sorted(results, key=lambda x: x["stop_name"])

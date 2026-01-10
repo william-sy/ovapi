@@ -145,6 +145,8 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     label = f"{city['name']} ({city['stop_count']} stops)"
                     city_options[city["name"]] = label
                 
+                # Store selected city and show stops directly
+                self.context["selected_city"] = list(city_options.keys())[0]
                 return self.async_show_form(
                     step_id="search",
                     data_schema=vol.Schema(
@@ -153,7 +155,7 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         }
                     ),
                     description_placeholders={
-                        "info": "Select your city to search for stops with real-time data."
+                        "info": "Select your city to browse all stops with real-time data."
                     },
                     errors=errors,
                 )
@@ -175,48 +177,47 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_search_stop(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Handle the stop search step within selected city."""
+        """Handle displaying all stops in selected city."""
         from .tpc_search import TPCSearchHandler
         
         errors: dict[str, str] = {}
         selected_city = self.context.get("selected_city")
 
         if user_input is not None:
-            try:
-                session = async_get_clientsession(self.hass)
-                tpc_handler = TPCSearchHandler(session)
-                
-                # Search within the selected city, real-time only
-                results = await tpc_handler.search_stops(
-                    user_input["search_query"],
-                    city=selected_city,
-                    realtime_only=True,
-                    limit=20
+            # User selected a city, now show them the stops
+            selected_city = user_input["city"]
+            self.context["selected_city"] = selected_city
+        
+        try:
+            session = async_get_clientsession(self.hass)
+            tpc_handler = TPCSearchHandler(session)
+            
+            # Get all stops in the selected city (empty query returns all)
+            results = await tpc_handler.search_by_city(
+                selected_city,
+                realtime_only=True
+            )
+            
+            if not results:
+                errors["base"] = "no_stops_found"
+                return self.async_show_form(
+                    step_id="search_stop",
+                    data_schema=vol.Schema({vol.Required("city"): str}),
+                    errors=errors,
                 )
+            
+            # Store search results and show stop selection
+            self.context["search_results"] = results
+            return await self.async_step_select_stop()
                 
-                if not results:
-                    errors["base"] = "no_stops_found"
-                else:
-                    # Store search results for the next step
-                    self.context["search_results"] = results
-                    return await self.async_step_select_stop()
-                    
-            except Exception:  # pylint: disable=broad-except
-                _LOGGER.exception("Unexpected exception during stop search")
-                errors["base"] = "unknown"
-
-        return self.async_show_form(
-            step_id="search_stop",
-            data_schema=vol.Schema(
-                {
-                    vol.Required("search_query"): str,
-                }
-            ),
-            description_placeholders={
-                "city": selected_city or "selected city",
-            },
-            errors=errors,
-        )
+        except Exception:  # pylint: disable=broad-except
+            _LOGGER.exception("Unexpected exception loading stops for city")
+            errors["base"] = "unknown"
+            return self.async_show_form(
+                step_id="search_stop",
+                data_schema=vol.Schema({vol.Required("city"): str}),
+                errors=errors,
+            )
 
     async def async_step_select_stop(
         self, user_input: dict[str, Any] | None = None
@@ -540,9 +541,13 @@ class OVAPIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         if dest:
                             destinations.add(dest)
             
+            _LOGGER.info(
+                "Found %d destinations for stop %s, line %s: %s",
+                len(destinations), stop_code, line_number, sorted(destinations)
+            )
             return sorted(list(destinations))
         except Exception as err:
-            _LOGGER.debug("Could not fetch destinations: %s", err)
+            _LOGGER.error("Could not fetch destinations: %s", err)
             return []
 
     async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> FlowResult:
