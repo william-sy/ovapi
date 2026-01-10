@@ -72,15 +72,26 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
     if not valid_stop_found:
         if len(stop_codes_to_check) > 1:
             _LOGGER.warning(
-                "None of the stop codes (%s) have real-time data available", 
-                ", ".join(stop_codes_to_check)
+                "None of the stop codes (%s) have real-time data available. Last error: %s", 
+                ", ".join(stop_codes_to_check),
+                last_error
             )
             raise ValueError(
                 f"None of the selected stops have real-time departure data. "
-                f"Stop codes: {', '.join(stop_codes_to_check)}"
+                f"Stop codes tried: {', '.join(stop_codes_to_check)}. "
+                f"This stop may not exist in OVAPI or has no active services."
             )
         else:
-            raise ValueError(f"Stop code {stop_codes_to_check[0]} has no real-time data available")
+            _LOGGER.warning(
+                "Stop code %s validation failed: %s",
+                stop_codes_to_check[0],
+                last_error
+            )
+            raise ValueError(
+                f"Stop code {stop_codes_to_check[0]} has no real-time data available. "
+                f"This stop may not exist in OVAPI (404 error) or has no active services. "
+                f"Please try a different stop or use Manual Entry to verify the stop code."
+            )
 
     # Try to get the stop name from GTFS data
     stop_name = None
