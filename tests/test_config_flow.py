@@ -9,6 +9,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.ovapi.const import (
     CONF_DESTINATION,
+    CONF_ENABLE_LIVE_TRACKING,
     CONF_LINE_NUMBER,
     CONF_SCAN_INTERVAL,
     CONF_STOP_CODE,
@@ -198,3 +199,50 @@ async def test_reconfigure(
     )
     assert result["type"] == FlowResultType.ABORT
     assert result["reason"] == "reauth_successful"
+
+
+async def test_options_flow_enable_live_tracking(
+    hass: HomeAssistant, mock_ovapi_client, mock_kv6_manager
+) -> None:
+    """Enabling live tracking via the options flow persists and takes effect.
+
+    mock_kv6_manager is required here: toggling the option on triggers
+    async_reload -> async_setup_entry, which would otherwise construct a
+    real KV6LiveTracker and start a real background thread/socket.
+    """
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_STOP_CODE: "31000495",
+            CONF_WALKING_TIME: DEFAULT_WALKING_TIME,
+            CONF_SCAN_INTERVAL: DEFAULT_SCAN_INTERVAL,
+        },
+    )
+    entry.add_to_hass(hass)
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(
+            "custom_components.ovapi.OVAPIClient",
+            lambda session: mock_ovapi_client,
+        )
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        result = await hass.config_entries.options.async_init(entry.entry_id)
+        assert result["type"] == FlowResultType.FORM
+        assert result["step_id"] == "init"
+
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            {
+                CONF_SCAN_INTERVAL: DEFAULT_SCAN_INTERVAL,
+                CONF_WALKING_TIME: DEFAULT_WALKING_TIME,
+                CONF_ENABLE_LIVE_TRACKING: True,
+            },
+        )
+        await hass.async_block_till_done()
+
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert entry.data[CONF_ENABLE_LIVE_TRACKING] is True
+    # The reload triggered by saving options should have started tracking.
+    mock_kv6_manager.start.assert_called_once()

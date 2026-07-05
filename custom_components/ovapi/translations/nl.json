@@ -53,7 +53,27 @@
       "already_configured": "Deze halte- en lijncombinatie is al geconfigureerd"
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "enable_live_tracking": "Live GPS-tracking van voertuigen inschakelen (beta)"
+        },
+        "data_description": {
+          "enable_live_tracking": "Toont de werkelijke bus-/trampositie op een kaart via de publieke KV6-feed van NDOVloket. Standaard uitgeschakeld; niet elke vervoerder publiceert deze data."
+        }
+      }
+    }
+  },
   "entity": {
+    "device_tracker": {
+      "current_bus_location": {
+        "name": "Huidige voertuiglocatie"
+      },
+      "next_bus_location": {
+        "name": "Volgende voertuiglocatie"
+      }
+    },
     "sensor": {
       "current_bus": {
         "name": "Huidig voertuig"

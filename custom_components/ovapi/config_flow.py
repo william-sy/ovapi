@@ -18,11 +18,13 @@ from homeassistant.helpers import selector
 from .api import OVAPIClient
 from .const import (
     CONF_DESTINATION,
+    CONF_ENABLE_LIVE_TRACKING,
     CONF_LINE_NUMBER,
     CONF_SCAN_INTERVAL,
     CONF_STOP_CODE,
     CONF_STOP_CODES,
     CONF_WALKING_TIME,
+    DEFAULT_ENABLE_LIVE_TRACKING,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_WALKING_TIME,
     DOMAIN,
@@ -689,13 +691,19 @@ class OVAPIOptionsFlow(config_entries.OptionsFlow):
                     default=self.config_entry.data.get(CONF_WALKING_TIME, 0)
                 ): selector.NumberSelector(
                     selector.NumberSelectorConfig(
-                        min=0, 
-                        max=60, 
-                        step=1, 
+                        min=0,
+                        max=60,
+                        step=1,
                         mode=selector.NumberSelectorMode.BOX,
                         unit_of_measurement="minutes"
                     )
                 ),
+                vol.Optional(
+                    CONF_ENABLE_LIVE_TRACKING,
+                    default=self.config_entry.data.get(
+                        CONF_ENABLE_LIVE_TRACKING, DEFAULT_ENABLE_LIVE_TRACKING
+                    ),
+                ): selector.BooleanSelector(),
             }
         )
 

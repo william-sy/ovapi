@@ -57,6 +57,6 @@ repair-issues: exempt  # No repairs needed for current functionality
 stale-devices: exempt  # No dynamic device removal needed
 
 ## Platinum
-async-dependency: done  # Using aiohttp
+async-dependency: done  # Using aiohttp; opt-in KV6 live tracking uses pyzmq (sync) in a dedicated background thread, bridged back to the event loop via HA's dispatcher — never blocks it
 inject-websession: done  # Session injected in API client
 strict-typing: done  # All code fully typed

@@ -13,6 +13,7 @@ A custom Home Assistant integration that provides real-time bus information from
 - ⏰ **Departure Times**: Shows minutes until bus departures
 - 🔄 **Configurable Updates**: Set update interval between 60-300 seconds (default: 60s)
 - 🎛️ **UI Configuration**: Easy setup through Home Assistant UI
+- 📍 **Live Vehicle GPS Tracking (opt-in, beta)**: See the real bus/tram position on a map, sourced from NDOVloket's public real-time feed
 
 ## Installation
 
@@ -154,6 +155,20 @@ Each sensor includes additional attributes with detailed information:
 - `bus_line`: Line number of the bus
 - `bus_destination`: Destination of the bus
 
+## Live Vehicle Tracking (Beta)
+
+Optionally shows the real, live GPS position of the current and next bus on a map, sourced from [GOVI/NDOVloket](https://govi.nu)'s public real-time **KV6** feed — a separate data source from the departure-time API above.
+
+**This is opt-in and off by default.** Enable it via the integration's **Options** (gear icon on the integration card → the same place you'd change the update interval or walking time). Turning it on:
+- Adds the `pyzmq` dependency to your Home Assistant install
+- Opens a persistent background connection to NDOVloket's public broker
+- Creates two `device_tracker` entities per stop: `device_tracker.<stop>_current_vehicle_location` and `device_tracker.<stop>_next_vehicle_location` (the latter disabled by default, matching the existing next-bus sensor)
+
+**Known limitations:**
+- Not every Dutch operator publishes to KV6 — some stops/lines will never show a live position even with tracking enabled.
+- A vehicle only appears once it's actively driving its trip; a bus still waiting to depart has no position yet.
+- Position updates can take up to a couple of minutes to start after enabling, since topics are only subscribed to as your stop's operators are discovered from regular departure polling.
+
 ## Example Automations
 
 ### Notification When to Leave
@@ -247,6 +262,14 @@ entities:
 - OVAPI.nl might be temporarily unavailable
 - Check your internet connection
 - The integration will automatically retry
+
+### Live tracking shows no location
+
+- Confirm live tracking is actually enabled in the integration's Options — it's off by default
+- Not every operator publishes to the KV6 feed; some lines will never show a live position regardless
+- The vehicle may not be actively driving yet — a bus still waiting to depart has no GPS fix
+- Give it a couple of minutes after enabling — topics are only subscribed to as your stop's operators are discovered from regular polling
+- Check Home Assistant logs for `custom_components.ovapi.kv6` debug messages
 
 ## API Information
 

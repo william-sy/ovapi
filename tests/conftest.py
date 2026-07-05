@@ -59,10 +59,33 @@ def mock_ovapi_client():
                 "target_arrival": "2025-12-01T14:28:00",
                 "delay": 2,
                 "transport_type": "BUS",
+                "data_owner_code": "GVB",
+                "line_planning_number": "22",
+                "journey_number": "12345",
+                "operation_date": "2025-12-01",
             }
         ]
         client.get_time_until_departure = lambda dt: 10 if dt else None
         yield client
+
+
+@pytest.fixture
+def mock_kv6_manager():
+    """Mock KV6LiveTracker.
+
+    Patched at its definition site (custom_components.ovapi.kv6), matching
+    the mock_gtfs_handler pattern above — both classes are lazily imported
+    inside functions rather than at module load time, so patching
+    "custom_components.ovapi.kv6.KV6LiveTracker" is what actually intercepts
+    the `from .kv6 import KV6LiveTracker` call in async_setup_entry.
+    """
+    with patch(
+        "custom_components.ovapi.kv6.KV6LiveTracker", autospec=True
+    ) as mock_tracker_cls:
+        tracker = mock_tracker_cls.return_value
+        tracker.async_stop = AsyncMock(return_value=None)
+        tracker.get_position.return_value = None
+        yield tracker
 
 
 @pytest.fixture

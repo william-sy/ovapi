@@ -75,6 +75,7 @@ class OVAPIClient:
                     _LOGGER.debug("Including: line=%s to %s at %s", 
                                  pass_line, pass_dest, pass_data.get("ExpectedArrivalTime"))
                     
+                    journey_number = pass_data.get("JourneyNumber")
                     passes.append({
                         "line_number": pass_line,
                         "destination": pass_dest,
@@ -86,6 +87,16 @@ class OVAPIClient:
                         ),
                         "transport_type": pass_data.get("TransportType"),
                         "stop_code": stop_code,  # Track which stop this bus is at
+                        # Raw OVAPI identifiers, passed through unreduced for the
+                        # optional KV6 live-tracking feature (see kv6.py) to match
+                        # this exact trip against a real-time vehicle GPS fix.
+                        # journey_number is coerced to str: OVAPI's JSON may give
+                        # an int, KV6's XML is always a string, and both sides of
+                        # the match key must compare equal.
+                        "data_owner_code": pass_data.get("DataOwnerCode"),
+                        "line_planning_number": pass_data.get("LinePlanningNumber"),
+                        "journey_number": str(journey_number) if journey_number is not None else None,
+                        "operation_date": pass_data.get("OperationDate"),
                     })
         
         # Sort by expected arrival time

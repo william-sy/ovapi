@@ -53,7 +53,27 @@
       "already_configured": "This stop and line combination is already configured"
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "enable_live_tracking": "Enable live vehicle GPS tracking (beta)"
+        },
+        "data_description": {
+          "enable_live_tracking": "Shows the real bus/tram position on a map using NDOVloket's public KV6 feed. Off by default; not every operator publishes this data."
+        }
+      }
+    }
+  },
   "entity": {
+    "device_tracker": {
+      "current_bus_location": {
+        "name": "Current vehicle location"
+      },
+      "next_bus_location": {
+        "name": "Next vehicle location"
+      }
+    },
     "sensor": {
       "current_bus": {
         "name": "Current vehicle"

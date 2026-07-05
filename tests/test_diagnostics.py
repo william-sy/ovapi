@@ -23,7 +23,8 @@ async def test_diagnostics(hass: HomeAssistant, mock_ovapi_client) -> None:
     mock_coordinator.last_update_success = True
     mock_coordinator.update_interval = timedelta(seconds=30)
     mock_coordinator.data = []
-    
+    mock_coordinator.kv6_manager = None
+
     entry.runtime_data = mock_coordinator
 
     diagnostics = await async_get_config_entry_diagnostics(hass, entry)
@@ -31,3 +32,4 @@ async def test_diagnostics(hass: HomeAssistant, mock_ovapi_client) -> None:
     assert diagnostics["entry"]["data"]["stop_code"] == "31000495"
     assert diagnostics["coordinator"]["stop_code"] == "31000495"
     assert "passes_count" in diagnostics["data"]
+    assert diagnostics["kv6"] == {"enabled": False}
